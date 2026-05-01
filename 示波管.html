@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>示波管结构 - 3D电子枪与偏转系统 | 射线检测悬停说明（含偏转板及屏幕）</title>
+    <title>示波管结构 - 3D电子枪与偏转系统 | 可折叠控制面板</title>
     <style>
         body {
             margin: 0;
@@ -39,7 +39,6 @@
             background: rgba(20, 20, 40, 0.92);
             backdrop-filter: blur(12px);
             border-radius: 16px;
-            padding: 16px;
             color: white;
             border: 1px solid rgba(255,255,255,0.3);
             box-shadow: 0 8px 20px rgba(0,0,0,0.4);
@@ -47,26 +46,112 @@
             font-size: 12px;
             pointer-events: auto;
             user-select: none;
+            overflow: hidden;
+            transition: width 0.2s, height 0.2s;
         }
         .panel-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            padding: 12px 16px;
+            cursor: move;
+            background: rgba(0,0,0,0.3);
             border-bottom: 1px solid #3a86ff;
-            padding-bottom: 6px;
         }
-        .panel-header h3 { margin: 0; font-size: 16px; }
-        .control-group { margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 8px; }
-        .control-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 11px; color: #ddd; }
-        select, input { width: 100%; background: #2a2a3a; border: 1px solid #5a6e9a; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; }
-        .param-row { display: flex; gap: 8px; margin-top: 6px; }
-        .param-row > div { flex: 1; }
-        .badge { background: #3a86ff; border-radius: 10px; padding: 2px 8px; font-size: 9px; margin-top: 4px; display: inline-block; }
-        button { background: #3a86ff; border: none; padding: 6px 12px; border-radius: 20px; color: white; cursor: pointer; font-size: 11px; width: 100%; margin-top: 8px; }
-        button:hover { background: #2666cc; }
-        .value-display { font-size: 10px; color: #aaa; text-align: right; margin-top: 2px; }
-        .note { font-size: 10px; text-align: center; margin-top: 10px; color: #88aaff; }
+        .panel-header h3 {
+            margin: 0;
+            font-size: 16px;
+            pointer-events: none;
+        }
+        .collapse-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            pointer-events: auto;
+        }
+        .collapse-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        .panel-content {
+            padding: 16px;
+            transition: all 0.2s;
+        }
+        .panel-content.collapsed {
+            display: none;
+        }
+        .control-group {
+            margin-bottom: 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+            padding-bottom: 8px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 11px;
+            color: #ddd;
+        }
+        select, input {
+            width: 100%;
+            background: #2a2a3a;
+            border: 1px solid #5a6e9a;
+            color: white;
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .param-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .param-row > div {
+            flex: 1;
+        }
+        .badge {
+            background: #3a86ff;
+            border-radius: 10px;
+            padding: 2px 8px;
+            font-size: 9px;
+            margin-top: 4px;
+            display: inline-block;
+        }
+        button {
+            background: #3a86ff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+            font-size: 11px;
+            width: 100%;
+            margin-top: 8px;
+        }
+        button:hover {
+            background: #2666cc;
+        }
+        .value-display {
+            font-size: 10px;
+            color: #aaa;
+            text-align: right;
+            margin-top: 2px;
+        }
+        .note {
+            font-size: 10px;
+            text-align: center;
+            margin-top: 10px;
+            color: #88aaff;
+        }
         .sync-note {
             font-size: 10px;
             text-align: center;
@@ -105,10 +190,9 @@
             z-index: 1000;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             line-height: 1.4;
-            transition: opacity 0.1s;
         }
         @media (max-width: 700px) {
-            .control-panel { width: 260px; left: 10px; top: 90px; padding: 12px; }
+            .control-panel { width: 260px; left: 10px; top: 90px; }
             .axis-container { width: 110px; height: 110px; bottom: 10px; right: 10px; }
             .title { font-size: 20px; top: 12px; padding: 4px 16px; }
         }
@@ -117,33 +201,38 @@
 <body>
     <div class="title">示波管结构</div>
     <div id="control-panel" class="control-panel">
-        <div class="panel-header"><h3>⚡ 偏转系统控制</h3></div>
-        <div class="control-group">
-            <label>🎛️ 电子速度 (0=静止 → 10.0)</label>
-            <input type="range" id="electron-speed" min="0" max="10.0" step="0.05" value="1.5">
-            <div class="value-display" id="speed-val">1.50</div>
+        <div class="panel-header">
+            <h3>⚡ 偏转系统控制</h3>
+            <button id="collapse-btn" class="collapse-btn">▲</button>
         </div>
-        <div class="control-group">
-            <label>🟡 X偏转板 (水平偏转 / 左右)</label>
-            <select id="x-waveform"><option value="sin">正弦波</option><option value="tri">三角波</option><option value="saw">锯齿波</option><option value="square">方波</option></select>
-            <div class="param-row">
-                <div><label>频率(Hz)</label><input type="range" id="x-freq" min="0" max="10" step="0.5" value="2.0"><span id="x-freq-val" class="badge">2.0</span></div>
-                <div><label>电压(V)</label><input type="range" id="x-volt" min="0" max="2.5" step="0.5" value="1.2"><span id="x-volt-val" class="badge">1.2</span></div>
+        <div id="panel-content" class="panel-content">
+            <div class="control-group">
+                <label>🎛️ 电子速度 (0=静止 → 10.0)</label>
+                <input type="range" id="electron-speed" min="0" max="10.0" step="0.05" value="1.5">
+                <div class="value-display" id="speed-val">1.50</div>
             </div>
-            <div><label>初相位(°)</label><input type="range" id="x-phase" min="0" max="360" step="5" value="0"><span id="x-phase-val" class="badge">0°</span></div>
-        </div>
-        <div class="control-group">
-            <label>🔵 Y偏转板 (垂直偏转 / 上下)</label>
-            <select id="y-waveform"><option value="sin">正弦波</option><option value="tri">三角波</option><option value="saw">锯齿波</option><option value="square">方波</option></select>
-            <div class="param-row">
-                <div><label>频率(Hz)</label><input type="range" id="y-freq" min="0" max="10" step="0.5" value="1.5"><span id="y-freq-val" class="badge">1.5</span></div>
-                <div><label>电压(V)</label><input type="range" id="y-volt" min="0" max="2.5" step="0.5" value="1.0"><span id="y-volt-val" class="badge">1.0</span></div>
+            <div class="control-group">
+                <label>🟡 X偏转板 (水平偏转 / 左右)</label>
+                <select id="x-waveform"><option value="sin">正弦波</option><option value="tri">三角波</option><option value="saw">锯齿波</option><option value="square">方波</option></select>
+                <div class="param-row">
+                    <div><label>频率(Hz)</label><input type="range" id="x-freq" min="0" max="10" step="0.5" value="2.0"><span id="x-freq-val" class="badge">2.0</span></div>
+                    <div><label>电压(V)</label><input type="range" id="x-volt" min="0" max="2.5" step="0.5" value="1.2"><span id="x-volt-val" class="badge">1.2</span></div>
+                </div>
+                <div><label>初相位(°)</label><input type="range" id="x-phase" min="0" max="360" step="5" value="0"><span id="x-phase-val" class="badge">0°</span></div>
             </div>
-            <div><label>初相位(°)</label><input type="range" id="y-phase" min="0" max="360" step="5" value="45"><span id="y-phase-val" class="badge">45°</span></div>
+            <div class="control-group">
+                <label>🔵 Y偏转板 (垂直偏转 / 上下)</label>
+                <select id="y-waveform"><option value="sin">正弦波</option><option value="tri">三角波</option><option value="saw">锯齿波</option><option value="square">方波</option></select>
+                <div class="param-row">
+                    <div><label>频率(Hz)</label><input type="range" id="y-freq" min="0" max="10" step="0.5" value="1.5"><span id="y-freq-val" class="badge">1.5</span></div>
+                    <div><label>电压(V)</label><input type="range" id="y-volt" min="0" max="2.5" step="0.5" value="1.0"><span id="y-volt-val" class="badge">1.0</span></div>
+                </div>
+                <div><label>初相位(°)</label><input type="range" id="y-phase" min="0" max="360" step="5" value="45"><span id="y-phase-val" class="badge">45°</span></div>
+            </div>
+            <button id="reset-screen-btn">🧹 清除荧光屏轨迹</button>
+            <div class="sync-note">若想得到稳定信号，X和Y的频率要满足成整数比关系。这就是“同步作用”。</div>
+            <div class="note">💡 鼠标划过电极模型（阴极/栅极/阳极/偏转板/荧光屏）可显示说明</div>
         </div>
-        <button id="reset-screen-btn">🧹 清除荧光屏轨迹</button>
-        <div class="sync-note">若想得到稳定信号，X和Y的频率要满足成整数比关系。这就是“同步作用”。</div>
-        <div class="note">💡 鼠标划过电极模型（阴极/栅极/阳极/偏转板/荧光屏）可显示说明</div>
     </div>
 
     <div class="axis-container" id="axis-container"><canvas id="axis-canvas" class="axis-canvas"></canvas></div>
@@ -163,6 +252,21 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
+        // 折叠功能
+        const collapseBtn = document.getElementById('collapse-btn');
+        const panelContent = document.getElementById('panel-content');
+        let isCollapsed = false;
+        collapseBtn.addEventListener('click', () => {
+            isCollapsed = !isCollapsed;
+            if (isCollapsed) {
+                panelContent.classList.add('collapsed');
+                collapseBtn.innerHTML = '▼';
+            } else {
+                panelContent.classList.remove('collapsed');
+                collapseBtn.innerHTML = '▲';
+            }
+        });
+
         function getWaveValue(type, t, freq, phaseDeg, amp) {
             if (freq === 0) return Math.sin(phaseDeg * Math.PI/180) * amp;
             let arg = 2 * Math.PI * freq * t + phaseDeg * Math.PI/180;
@@ -175,7 +279,7 @@
             }
         }
 
-        // --- 初始化场景 ---
+        // --- 初始化场景 (完整保留原有三维内容) ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x050a16);
         scene.fog = new THREE.FogExp2(0x050a16, 0.008);
@@ -266,10 +370,10 @@
         glassGroup.add(neck);
         scene.add(glassGroup);
         
-        // 内部电极组 (单独分组用于射线检测)
+        // 内部电极组
         const internals = new THREE.Group();
         
-        // 灯丝 (螺旋)
+        // 灯丝
         const filamentGroup = new THREE.Group();
         const filamentMat = new THREE.MeshStandardMaterial({ color: 0xff5555, emissive: 0xff2222, emissiveIntensity: 0.85 });
         for (let i = 0; i <= 28; i++) {
@@ -284,7 +388,7 @@
         }
         internals.add(filamentGroup);
         
-        // 阴极 (深灰圆筒)
+        // 阴极
         const cathodeMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, metalness: 0.4, roughness: 0.6 });
         const cathodeCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.95, 32), cathodeMat);
         cathodeCyl.rotation.z = Math.PI/2;
@@ -295,7 +399,7 @@
         cathodeCap.position.set(-2.42, 0, 0);
         internals.add(cathodeCap);
         
-        // 栅极 (半透银)
+        // 栅极
         const gridMat = new THREE.MeshStandardMaterial({ color: 0xc0c0c0, metalness: 0.75, roughness: 0.3, transparent: true, opacity: 0.6 });
         const gridCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 1.25, 48), gridMat);
         gridCyl.rotation.z = Math.PI/2;
@@ -306,21 +410,21 @@
         gridFront.position.set(-0.53, 0, 0);
         internals.add(gridFront);
         
-        // 第一阳极 (亮银圆盘)
+        // 第一阳极
         const anode1Mat = new THREE.MeshStandardMaterial({ color: 0xd8d8d8, metalness: 0.7, roughness: 0.35 });
         const anode1Disc = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.25, 48), anode1Mat);
         anode1Disc.rotation.z = Math.PI/2;
         anode1Disc.position.set(0.2, 0, 0);
         internals.add(anode1Disc);
         
-        // 第二阳极 (中灰长筒)
+        // 第二阳极
         const anode2Mat = new THREE.MeshStandardMaterial({ color: 0xb0b0b0, metalness: 0.72, roughness: 0.4 });
         const anode2Cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 1.85, 48), anode2Mat);
         anode2Cyl.rotation.z = Math.PI/2;
         anode2Cyl.position.set(1.4, 0, 0);
         internals.add(anode2Cyl);
         
-        // 偏转板 (青绿色正方形)
+        // 偏转板
         const plateMat = new THREE.MeshStandardMaterial({ color: 0x66eebb, metalness: 0.65, roughness: 0.3, emissive: 0x226644 });
         const plateSize = 1.45;
         const gap = 0.95;
@@ -337,7 +441,7 @@
         
         scene.add(internals);
         
-        // 荧光屏 (正方形)
+        // 荧光屏
         const screenTexture = document.createElement('canvas');
         screenTexture.width = 1024;
         screenTexture.height = 1024;
@@ -355,7 +459,7 @@
         const electron = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 32), electronMatObj);
         scene.add(electron);
         
-        // --- 文字标签 (仅用于视觉，不参与交互) ---
+        // 文字标签
         function makeLabel(text, pos, color) {
             const div = document.createElement('div');
             div.textContent = text;
@@ -381,7 +485,7 @@
         makeLabel('X偏转板', new THREE.Vector3(5.5, labelY, 0), '#66eebb');
         makeLabel('荧光屏', new THREE.Vector3(8.8, labelY, 0), '#88ffaa');
         
-        // --- 射线检测悬停提示 (基于模型部件，包含偏转板和荧光屏) ---
+        // 射线检测悬停提示
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         const interactiveParts = [
@@ -424,7 +528,7 @@
             }
         });
         
-        // 屏幕绘制 (仅点)
+        // 屏幕绘制
         function drawOnScreen(sx, sy) {
             const cx = (sx * 0.92 + 1) / 2 * screenTexture.width;
             const cy = (1 - (sy * 0.9 + 1) / 2) * screenTexture.height;
@@ -440,7 +544,7 @@
             screenMat.map.needsUpdate = true;
         });
         
-        // 电子运动逻辑
+        // 电子运动
         let progress = 0, globalT = 0;
         const CATH_X = -2.2, Y_START = 3.3, X_START = 5.3, SCR_X = 8.6;
         function updateElectron(delta) {
@@ -469,7 +573,6 @@
             electron.material.emissiveIntensity = 0.7 + speed * 0.12;
         }
         
-        // UI 绑定
         const ids = ['x-freq','x-volt','x-phase','y-freq','y-volt','y-phase'];
         ids.forEach(id => {
             const el = document.getElementById(id);
@@ -545,7 +648,51 @@
         }
         animateAxis();
         
-        console.log('射线检测悬停提示已启用，包含阴极、栅极、第一/第二阳极、Y/X偏转板及荧光屏，并已添加同步说明');
+        // 面板拖拽和缩放（保留原有功能）
+        const panel = document.getElementById('control-panel');
+        let isDraggingPanel = false;
+        let dragOffsetX = 0, dragOffsetY = 0;
+        panel.querySelector('.panel-header').addEventListener('mousedown', (e) => {
+            if (e.target === collapseBtn) return;
+            isDraggingPanel = true;
+            dragOffsetX = e.clientX - panel.offsetLeft;
+            dragOffsetY = e.clientY - panel.offsetTop;
+            panel.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingPanel) return;
+            let left = e.clientX - dragOffsetX;
+            let top = e.clientY - dragOffsetY;
+            left = Math.min(window.innerWidth - panel.offsetWidth, Math.max(0, left));
+            top = Math.min(window.innerHeight - panel.offsetHeight, Math.max(0, top));
+            panel.style.left = left + 'px';
+            panel.style.top = top + 'px';
+            panel.style.right = 'auto';
+        });
+        window.addEventListener('mouseup', () => { isDraggingPanel = false; panel.style.cursor = 'move'; });
+        
+        const resizeHandle = document.getElementById('resize-handle');
+        if (resizeHandle) {
+            let isResizing = false;
+            let startWidth, startX;
+            resizeHandle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startWidth = panel.offsetWidth;
+                startX = e.clientX;
+                e.stopPropagation();
+                e.preventDefault();
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                let newWidth = startWidth + (e.clientX - startX);
+                newWidth = Math.min(400, Math.max(220, newWidth));
+                panel.style.width = newWidth + 'px';
+            });
+            window.addEventListener('mouseup', () => { isResizing = false; });
+        }
+        
+        console.log('折叠面板功能已启用，点击标题栏右侧按钮即可折叠/展开控制区');
     </script>
 </body>
 </html>
