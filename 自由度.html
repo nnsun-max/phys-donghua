@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>分子动力学：双原子分子(X轴特征轴) + 水分子(Y轴特征轴+自转θ)</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Microsoft YaHei', 'Segoe UI', 'PingFang SC', Roboto, 'Helvetica Neue', sans-serif;
+        }
+        #controls {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 340px;
+            background: rgba(30,30,40,0.94);
+            backdrop-filter: blur(12px);
+            color: white;
+            z-index: 20;
+            font-family: monospace;
+            pointer-events: auto;
+            border-right: 1px solid rgba(255,255,255,0.25);
+            box-shadow: 4px 0 20px rgba(0,0,0,0.6);
+            transition: transform 0.3s ease, width 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #controls.controls-collapsed {
+            width: 48px;
+        }
+        #controls.controls-collapsed .controls-header h3 {
+            display: none;
+        }
+        #controls.controls-collapsed .expandable-content {
+            display: none;
+        }
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: rgba(0,0,0,0.5);
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+            user-select: none;
+            min-height: 52px;
+        }
+        .controls-header h3 {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            color: #ffaa88;
+            white-space: nowrap;
+        }
+        .toggle-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+        .toggle-btn:hover {
+            background: #ff9800;
+            color: #1e1e2a;
+            transform: scale(1.05);
+        }
+        .expandable-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .expandable-content::-webkit-scrollbar {
+            width: 5px;
+        }
+        .expandable-content::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.3);
+            border-radius: 5px;
+        }
+        .expandable-content::-webkit-scrollbar-thumb {
+            background: #ff9800;
+            border-radius: 5px;
+        }
+        .control-group {
+            background: rgba(0,0,0,0.5);
+            border-radius: 20px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .control-group h4 {
+            margin: 0 0 5px 0;
+            font-size: 13px;
+            color: #ffaa88;
+            border-left: 2px solid #ffaa88;
+            padding-left: 8px;
+        }
+        .mode-switch {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        button {
+            background: #3a6ea5;
+            border: none;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            font-size: 13px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        button.active {
+            background: #ff9800;
+            color: #1e1e2a;
+            box-shadow: 0 0 8px rgba(255,152,0,0.6);
+        }
+        button:hover {
+            transform: scale(1.02);
+            filter: brightness(1.05);
+        }
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            flex-wrap: wrap;
+        }
+        .slider-row label {
+            min-width: 28px;
+            font-weight: bold;
+            color: #ddd;
+        }
+        input[type="range"] {
+            flex: 1;
+            min-width: 120px;
+            cursor: pointer;
+            background: #3a3a4a;
+            height: 3px;
+            border-radius: 3px;
+        }
+        .value-display {
+            min-width: 45px;
+            text-align: center;
+            background: #1e1e2a;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        .angle-panel {
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            backdrop-filter: blur(4px);
+            text-align: center;
+        }
+        .angle-panel span {
+            color: #ffaa66;
+            font-weight: bold;
+        }
+        .note {
+            font-size: 11px;
+            opacity: 0.7;
+            text-align: center;
+            background: rgba(0,0,0,0.4);
+            padding: 8px;
+            border-radius: 16px;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            pointer-events: none;
+            z-index: 15;
+            font-size: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            border-left: 4px solid #ff9800;
+            max-width: 300px;
+            text-align: right;
+        }
+        .disabled-slider {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        @media (max-width: 700px) {
+            #controls { width: 280px; }
+            #controls.controls-collapsed { width: 48px; }
+            .control-group { padding: 8px; }
+            button { padding: 4px 12px; font-size: 12px; }
+            .slider-row { gap: 5px; }
+            input[type="range"] { min-width: 90px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        🔬 <strong>双原子分子</strong> (特征轴为两原子连线→X轴) | 💧 <strong>水分子</strong> (特征轴为质心→氧→Y轴 + 黄色自转轴 + θ角)<br>
+        📐 质心处坐标轴 &nbsp;<span style="color:#ff8888">红色圆弧(α)</span> <span style="color:#88ff88">绿色圆弧(β)</span> <span style="color:#88aaff">蓝色圆弧(γ)</span> 
+        <div style="font-size:11px;">圆弧表示特征轴与X/Y/Z轴的夹角 | 两种模式状态独立，双原子无自转轴</div>
+    </div>
+    <div id="controls">
+        <div class="controls-header">
+            <h3>⚙️ 分子控制面板</h3>
+            <button class="toggle-btn" id="togglePanelBtn" title="折叠/展开">◀</button>
+        </div>
+        <div class="expandable-content" id="expandableContent">
+            <div class="control-group">
+                <h4>🔬 分子模式 (独立状态)</h4>
+                <div class="mode-switch">
+                    <button id="btnDiatomic" class="active">⚛️ 双原子分子 (X轴特征)</button>
+                    <button id="btnWater">💧 水分子 (Y轴特征+自转)</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <h4>🔄 分子指向 (α, β)</h4>
+                <div class="slider-row">
+                    <label>α</label>
+                    <input type="range" id="alphaSlider" min="0" max="360" step="1" value="65">
+                    <span id="alphaVal" class="value-display">65°</span>
+                    <span style="font-size:11px;">方位角</span>
+                </div>
+                <div class="slider-row">
+                    <label>β</label>
+                    <input type="range" id="betaSlider" min="0" max="180" step="1" value="48">
+                    <span id="betaVal" class="value-display">48°</span>
+                    <span style="font-size:11px;">极角</span>
+                </div>
+            </div>
+            <div class="control-group" id="thetaGroup">
+                <h4>🌀 绕自身轴自转 (θ角) <span style="color:#ffaa88;">[仅水分子]</span></h4>
+                <div class="slider-row">
+                    <label>θ</label>
+                    <input type="range" id="thetaSlider" min="0" max="360" step="1" value="0" disabled>
+                    <span id="thetaVal" class="value-display">0°</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <h4>📍 分子平动 (位置)</h4>
+                <div class="slider-row">
+                    <label>X</label>
+                    <input type="range" id="posXSlider" min="-3.5" max="3.5" step="0.02" value="0">
+                    <span id="posXVal" class="value-display">0.00</span>
+                </div>
+                <div class="slider-row">
+                    <label>Y</label>
+                    <input type="range" id="posYSlider" min="-2.5" max="3.0" step="0.02" value="0">
+                    <span id="posYVal" class="value-display">0.00</span>
+                </div>
+                <div class="slider-row">
+                    <label>Z</label>
+                    <input type="range" id="posZSlider" min="-3.5" max="3.5" step="0.02" value="0">
+                    <span id="posZVal" class="value-display">0.00</span>
+                </div>
+            </div>
+            <div class="angle-panel" id="angleDisplay">
+                🧪 特征轴夹角<br> α: --° | β: --° | γ: --°
+            </div>
+            <div class="note">
+                ✨ 双原子分子: 特征轴为两原子连线(局部X轴) → 圆弧夹角正确反映X轴与坐标轴的夹角<br>
+                💧 水分子: 特征轴为质心指向氧(局部Y轴)，黄色轴线即特征轴，可绕其自转θ<br>
+                🏷️ 模式切换时分别保存各自的状态(位置/指向/自转)，互不影响
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // --- 初始化场景 ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050b1a);
+        scene.fog = new THREE.FogExp2(0x050b1a, 0.008);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(5, 4, 6);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        const controlsOrbit = new OrbitControls(camera, renderer.domElement);
+        controlsOrbit.enableDamping = true;
+        controlsOrbit.dampingFactor = 0.05;
+        controlsOrbit.autoRotate = false;
+        controlsOrbit.enableZoom = true;
+        controlsOrbit.zoomSpeed = 1.2;
+        controlsOrbit.target.set(0, 0, 0);
+
+        // --- 世界辅助 ---
+        const worldAxes = new THREE.AxesHelper(4.0);
+        scene.add(worldAxes);
+        const arrowX = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 3.6, 0xff3333, 0.6, 0.4);
+        const arrowY = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), 3.6, 0x33ff33, 0.6, 0.4);
+        const arrowZ = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), 3.6, 0x3399ff, 0.6, 0.4);
+        scene.add(arrowX, arrowY, arrowZ);
+        
+        function makeWorldAxisLabel(text, color, position) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            div.style.color = color;
+            div.style.fontSize = '22px';
+            div.style.fontWeight = 'bold';
+            div.style.textShadow = '1px 1px 0px black';
+            div.style.background = 'rgba(0,0,0,0.6)';
+            div.style.padding = '2px 10px';
+            div.style.borderRadius = '30px';
+            div.style.border = `1px solid ${color}`;
+            div.style.backdropFilter = 'blur(4px)';
+            const label = new CSS2DObject(div);
+            label.position.copy(position);
+            scene.add(label);
+        }
+        makeWorldAxisLabel('X', '#ff8888', new THREE.Vector3(4.0, 0, 0));
+        makeWorldAxisLabel('Y', '#88ff88', new THREE.Vector3(0, 4.0, 0));
+        makeWorldAxisLabel('Z', '#8888ff', new THREE.Vector3(0, 0, 4.0));
+        
+        const gridHelper = new THREE.GridHelper(12, 20, 0x88aaff, 0x335588);
+        gridHelper.position.y = -1.8;
+        gridHelper.material.transparent = true;
+        gridHelper.material.opacity = 0.3;
+        scene.add(gridHelper);
+        
+        // 照明
+        const ambientLight = new THREE.AmbientLight(0x404060);
+        scene.add(ambientLight);
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1);
+        mainLight.position.set(2, 5, 3);
+        scene.add(mainLight);
+        const fillLight = new THREE.PointLight(0x4466cc, 0.4);
+        fillLight.position.set(-2, 1, 3);
+        scene.add(fillLight);
+        const backLight = new THREE.PointLight(0xffaa66, 0.3);
+        backLight.position.set(0, 1, -3);
+        scene.add(backLight);
+        const rimLight = new THREE.PointLight(0xff8866, 0.5);
+        rimLight.position.set(1, 2, -2);
+        scene.add(rimLight);
+        
+        // --- 分子容器 ---
+        const moleculeContainer = new THREE.Group();
+        scene.add(moleculeContainer);
+        
+        // --- 独立状态存储 ---
+        let diatomicState = {
+            position: { x: 0, y: 0, z: 0 },
+            alpha: 65,
+            beta: 48
+        };
+        let waterState = {
+            position: { x: 0, y: 0, z: 0 },
+            alpha: 65,
+            beta: 48,
+            theta: 0
+        };
+        
+        let currentModelGroup = null;
+        let currentMode = 'diatomic';
+        
+        // 定向四元数 (根据模式，将特征轴局部方向转向目标)
+        let currentOrientQuat = new THREE.Quaternion();
+        let currentSelfQuat = new THREE.Quaternion(); // 仅水分子使用
+        
+        // --- 质心辅助元素 ---
+        let cmAxesHelper = null;
+        let angleCss2D = null;
+        let angleLabelsGroup = null;
+        let arcAlpha = null, arcBeta = null, arcGamma = null;
+        let arcLabelAlpha = null, arcLabelBeta = null, arcLabelGamma = null;
+        
+        // 圆弧生成
+        function createThickArc(startDir, endDir, radius, color, tubeRadius = 0.045, segments = 56) {
+            const angle = startDir.angleTo(endDir);
+            if (angle < 0.005) return null;
+            const rotationAxis = new THREE.Vector3().crossVectors(startDir, endDir).normalize();
+            const points = [];
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                const theta = angle * t;
+                const quat = new THREE.Quaternion().setFromAxisAngle(rotationAxis, theta);
+                const dir = startDir.clone().applyQuaternion(quat).normalize();
+                points.push(dir.multiplyScalar(radius));
+            }
+            const curve = new THREE.CatmullRomCurve3(points);
+            const tubeGeom = new THREE.TubeGeometry(curve, segments, tubeRadius, 8, false);
+            const material = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.35 });
+            return new THREE.Mesh(tubeGeom, material);
+        }
+        
+        function updateArcs(featureAxisWorld, radius = 1.55) {
+            const Xdir = new THREE.Vector3(1, 0, 0);
+            const Ydir = new THREE.Vector3(0, 1, 0);
+            const Zdir = new THREE.Vector3(0, 0, 1);
+            const axis = featureAxisWorld.clone().normalize();
+            const eps = 0.005;
+            const removeArc = (arc) => { if(arc) { scene.remove(arc); if(arc.geometry) arc.geometry.dispose(); if(arc.material) arc.material.dispose(); } };
+            
+            if (axis.angleTo(Xdir) > eps && axis.angleTo(Xdir) < Math.PI - eps) {
+                const newArc = createThickArc(Xdir, axis, radius, 0xff6666, 0.045);
+                if (newArc) { removeArc(arcAlpha); arcAlpha = newArc; scene.add(arcAlpha); }
+            } else { removeArc(arcAlpha); arcAlpha = null; }
+            
+            if (axis.angleTo(Ydir) > eps && axis.angleTo(Ydir) < Math.PI - eps) {
+                const newArc = createThickArc(Ydir, axis, radius, 0x66ff66, 0.045);
+                if (newArc) { removeArc(arcBeta); arcBeta = newArc; scene.add(arcBeta); }
+            } else { removeArc(arcBeta); arcBeta = null; }
+            
+            if (axis.angleTo(Zdir) > eps && axis.angleTo(Zdir) < Math.PI - eps) {
+                const newArc = createThickArc(Zdir, axis, radius, 0x6666ff, 0.045);
+                if (newArc) { removeArc(arcGamma); arcGamma = newArc; scene.add(arcGamma); }
+            } else { removeArc(arcGamma); arcGamma = null; }
+        }
+        
+        function getBisectorDirection(startDir, endDir) {
+            return startDir.clone().add(endDir).normalize();
+        }
+        
+        function updateAngleLabels(angles, worldPos, featureAxisWorld) {
+            const Xdir = new THREE.Vector3(1,0,0);
+            const Ydir = new THREE.Vector3(0,1,0);
+            const Zdir = new THREE.Vector3(0,0,1);
+            const axis = featureAxisWorld.clone().normalize();
+            const radiusLabel = 1.85;
+            const bisectorAlpha = getBisectorDirection(Xdir, axis);
+            const bisectorBeta = getBisectorDirection(Ydir, axis);
+            const bisectorGamma = getBisectorDirection(Zdir, axis);
+            const posAlpha = worldPos.clone().add(bisectorAlpha.multiplyScalar(radiusLabel));
+            const posBeta = worldPos.clone().add(bisectorBeta.multiplyScalar(radiusLabel));
+            const posGamma = worldPos.clone().add(bisectorGamma.multiplyScalar(radiusLabel));
+            
+            const createLabel = (text, color, pos) => {
+                const div = document.createElement('div');
+                div.textContent = text;
+                div.style.color = color;
+                div.style.fontSize = '15px';
+                div.style.fontWeight = 'bold';
+                div.style.background = 'rgba(0,0,0,0.7)';
+                div.style.padding = '2px 8px';
+                div.style.borderRadius = '20px';
+                div.style.border = `1px solid ${color}`;
+                div.style.backdropFilter = 'blur(4px)';
+                div.style.whiteSpace = 'nowrap';
+                const label = new CSS2DObject(div);
+                label.position.copy(pos);
+                return label;
+            };
+            
+            if (arcLabelAlpha) scene.remove(arcLabelAlpha);
+            if (arcLabelBeta) scene.remove(arcLabelBeta);
+            if (arcLabelGamma) scene.remove(arcLabelGamma);
+            arcLabelAlpha = createLabel(`α = ${angles.alpha.toFixed(1)}°`, '#ff8888', posAlpha);
+            arcLabelBeta = createLabel(`β = ${angles.beta.toFixed(1)}°`, '#88ff88', posBeta);
+            arcLabelGamma = createLabel(`γ = ${angles.gamma.toFixed(1)}°`, '#88aaff', posGamma);
+            scene.add(arcLabelAlpha, arcLabelBeta, arcLabelGamma);
+        }
+        
+        function removeAllArcElements() {
+            [arcAlpha, arcBeta, arcGamma].forEach(arc => { if(arc) { scene.remove(arc); if(arc.geometry) arc.geometry.dispose(); if(arc.material) arc.material.dispose(); } });
+            [arcLabelAlpha, arcLabelBeta, arcLabelGamma].forEach(lbl => { if(lbl) scene.remove(lbl); });
+            arcAlpha = arcBeta = arcGamma = null;
+            arcLabelAlpha = arcLabelBeta = arcLabelGamma = null;
+        }
+        
+        // 获取当前特征轴的世界方向 (核心修正)
+        function getFeatureAxisWorld() {
+            if (currentMode === 'diatomic') {
+                // 双原子分子：特征轴为局部X轴
+                const localX = new THREE.Vector3(1, 0, 0);
+                return localX.clone().applyQuaternion(currentOrientQuat).normalize();
+            } else {
+                // 水分子：特征轴为局部Y轴
+                const localY = new THREE.Vector3(0, 1, 0);
+                return localY.clone().applyQuaternion(currentOrientQuat).normalize();
+            }
+        }
+        
+        function computeAnglesFromAxis(axisWorld) {
+            const axis = axisWorld.clone().normalize();
+            const angleX = Math.acos(Math.min(1, Math.max(-1, axis.x))) * 180 / Math.PI;
+            const angleY = Math.acos(Math.min(1, Math.max(-1, axis.y))) * 180 / Math.PI;
+            const angleZ = Math.acos(Math.min(1, Math.max(-1, axis.z))) * 180 / Math.PI;
+            return { alpha: angleX, beta: angleY, gamma: angleZ };
+        }
+        
+        function updateAllAngleVisuals() {
+            if (!cmAxesHelper) return;
+            const worldPos = moleculeContainer.getWorldPosition(new THREE.Vector3());
+            const featureAxis = getFeatureAxisWorld();
+            const angles = computeAnglesFromAxis(featureAxis);
+            if (angleCss2D) {
+                angleCss2D.element.innerHTML = `
+                    <div style="background:rgba(0,0,0,0.85); backdrop-filter:blur(10px); padding:6px 14px; border-radius:36px; 
+                                font-family:monospace; font-size:14px; font-weight:bold; border-left: 4px solid #ffaa44;
+                                color:#f0f0f0; box-shadow:0 2px 15px rgba(0,0,0,0.6); pointer-events:none; white-space:nowrap;">
+                        📐 特征轴夹角 &nbsp; 
+                        <span style="color:#ffaa66;">α</span>: ${angles.alpha.toFixed(1)}° &nbsp;
+                        <span style="color:#88ff88;">β</span>: ${angles.beta.toFixed(1)}° &nbsp;
+                        <span style="color:#88aaff;">γ</span>: ${angles.gamma.toFixed(1)}°
+                    </div>
+                `;
+            }
+            document.getElementById('angleDisplay').innerHTML = `🧪 特征轴夹角<br> α: ${angles.alpha.toFixed(1)}° | β: ${angles.beta.toFixed(1)}° | γ: ${angles.gamma.toFixed(1)}°<br><span style="font-size:10px;">cos²α+cos²β+cos²γ=1</span>`;
+            updateArcs(featureAxis, 1.55);
+            updateAngleLabels(angles, worldPos, featureAxis);
+            if (arcAlpha) arcAlpha.position.copy(worldPos);
+            if (arcBeta) arcBeta.position.copy(worldPos);
+            if (arcGamma) arcGamma.position.copy(worldPos);
+        }
+        
+        function updateCMModePosition() {
+            if (!cmAxesHelper) return;
+            const worldPos = moleculeContainer.getWorldPosition(new THREE.Vector3());
+            cmAxesHelper.position.copy(worldPos);
+            if (angleCss2D) angleCss2D.position.copy(worldPos.clone().add(new THREE.Vector3(0, 1.6, 0)));
+            if (angleLabelsGroup) angleLabelsGroup.position.copy(worldPos);
+            updateAllAngleVisuals();
+        }
+        
+        function createCMInfrastructure() {
+            if (cmAxesHelper) scene.remove(cmAxesHelper);
+            cmAxesHelper = new THREE.AxesHelper(2.5);
+            scene.add(cmAxesHelper);
+            if (angleCss2D) scene.remove(angleCss2D);
+            const div = document.createElement('div');
+            angleCss2D = new CSS2DObject(div);
+            scene.add(angleCss2D);
+            if (angleLabelsGroup) scene.remove(angleLabelsGroup);
+            angleLabelsGroup = new THREE.Group();
+            const makeAxisLabel = (text, color, offset) => {
+                const div = document.createElement('div');
+                div.textContent = text;
+                div.style.color = color;
+                div.style.fontSize = '16px';
+                div.style.fontWeight = 'bold';
+                div.style.textShadow = '1px 1px 0px black';
+                div.style.background = 'rgba(0,0,0,0.5)';
+                div.style.padding = '2px 6px';
+                div.style.borderRadius = '20px';
+                div.style.borderLeft = `3px solid ${color}`;
+                const label = new CSS2DObject(div);
+                label.position.copy(offset);
+                angleLabelsGroup.add(label);
+            };
+            makeAxisLabel('X', '#ff8888', new THREE.Vector3(2.3, 0, 0));
+            makeAxisLabel('Y', '#88ff88', new THREE.Vector3(0, 2.3, 0));
+            makeAxisLabel('Z', '#8888ff', new THREE.Vector3(0, 0, 2.3));
+            scene.add(angleLabelsGroup);
+            updateAllAngleVisuals();
+        }
+        
+        // --- 分子模型构建 ---
+        function buildDiatomicModel() {
+            const group = new THREE.Group();
+            const halfLen = 0.95;
+            const atomRadius = 0.42;
+            const atomMat1 = new THREE.MeshStandardMaterial({ color: 0xdd5566, roughness: 0.3, metalness: 0.1, emissive: 0x221111 });
+            const atomMat2 = new THREE.MeshStandardMaterial({ color: 0x66aaff, roughness: 0.3, metalness: 0.2, emissive: 0x001133 });
+            const sphere1 = new THREE.Mesh(new THREE.SphereGeometry(atomRadius, 64, 64), atomMat1);
+            const sphere2 = new THREE.Mesh(new THREE.SphereGeometry(atomRadius, 64, 64), atomMat2);
+            sphere1.position.set(-halfLen, 0, 0);
+            sphere2.position.set(halfLen, 0, 0);
+            group.add(sphere1, sphere2);
+            const cylinderGeom = new THREE.CylinderGeometry(0.12, 0.12, halfLen * 2, 12);
+            const cylinderMat = new THREE.MeshStandardMaterial({ color: 0xccaa88, roughness: 0.4, metalness: 0.6 });
+            const cylinder = new THREE.Mesh(cylinderGeom, cylinderMat);
+            cylinder.rotation.z = Math.PI / 2;
+            cylinder.position.set(0, 0, 0);
+            group.add(cylinder);
+            const centerMat = new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0x442200, emissiveIntensity: 0.5 });
+            const centerSphere = new THREE.Mesh(new THREE.SphereGeometry(0.09, 24, 24), centerMat);
+            group.add(centerSphere);
+            return group;
+        }
+        
+        function buildWaterModel() {
+            const group = new THREE.Group();
+            const oxygenMat = new THREE.MeshStandardMaterial({ color: 0xcc5555, roughness: 0.2, metalness: 0.05, emissive: 0x331100 });
+            const hydrogenMat = new THREE.MeshStandardMaterial({ color: 0xaaddff, roughness: 0.3, metalness: 0.1 });
+            const bondMat = new THREE.MeshStandardMaterial({ color: 0xccccaa, roughness: 0.4 });
+            
+            const oxygen = new THREE.Mesh(new THREE.SphereGeometry(0.38, 64, 64), oxygenMat);
+            oxygen.position.set(0, 0.15, 0);
+            group.add(oxygen);
+            
+            const angleRad = 109.5 * Math.PI / 180;
+            const bondLen = 0.62;
+            const h1Pos = new THREE.Vector3(Math.sin(angleRad/2) * bondLen, -0.25, Math.cos(angleRad/2) * bondLen);
+            const h2Pos = new THREE.Vector3(-Math.sin(angleRad/2) * bondLen, -0.25, Math.cos(angleRad/2) * bondLen);
+            const hydrogen1 = new THREE.Mesh(new THREE.SphereGeometry(0.24, 48, 48), hydrogenMat);
+            const hydrogen2 = new THREE.Mesh(new THREE.SphereGeometry(0.24, 48, 48), hydrogenMat);
+            hydrogen1.position.copy(h1Pos);
+            hydrogen2.position.copy(h2Pos);
+            group.add(hydrogen1, hydrogen2);
+            
+            const createBond = (p1, p2, radius) => {
+                const start = new THREE.Vector3(p1.x, p1.y, p1.z);
+                const end = new THREE.Vector3(p2.x, p2.y, p2.z);
+                const dir = new THREE.Vector3().subVectors(end, start);
+                const length = dir.length();
+                const cylinder = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 8), bondMat);
+                cylinder.position.copy(start.clone().add(end).multiplyScalar(0.5));
+                cylinder.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+                return cylinder;
+            };
+            group.add(createBond(oxygen.position, hydrogen1.position, 0.08));
+            group.add(createBond(oxygen.position, hydrogen2.position, 0.08));
+            
+            // 自身轴 (黄色)
+            const axisLength = 0.85;
+            const axisCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, axisLength, 6), new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0x442200 }));
+            axisCyl.position.set(0, axisLength/2, 0);
+            axisCyl.castShadow = true;
+            group.add(axisCyl);
+            const coneGeom = new THREE.ConeGeometry(0.08, 0.2, 8);
+            const cone = new THREE.Mesh(coneGeom, new THREE.MeshStandardMaterial({ color: 0xffaa66 }));
+            cone.position.set(0, axisLength + 0.05, 0);
+            group.add(cone);
+            
+            const centerMat = new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0x442200, emissiveIntensity: 0.5 });
+            const centerSphere = new THREE.Mesh(new THREE.SphereGeometry(0.09, 24, 24), centerMat);
+            group.add(centerSphere);
+            return group;
+        }
+        
+        // 核心旋转控制：根据模式设置定向四元数 (将特征轴转向目标方向)
+        function setMolecularOrientation(alphaDeg, betaDeg, thetaDeg = 0) {
+            const alphaRad = alphaDeg * Math.PI / 180;
+            const betaRad = betaDeg * Math.PI / 180;
+            const targetDir = new THREE.Vector3(Math.sin(betaRad) * Math.cos(alphaRad), Math.cos(betaRad), Math.sin(betaRad) * Math.sin(alphaRad)).normalize();
+            
+            let localAxis;
+            if (currentMode === 'diatomic') {
+                localAxis = new THREE.Vector3(1, 0, 0); // X轴
+            } else {
+                localAxis = new THREE.Vector3(0, 1, 0); // Y轴
+            }
+            const qOrient = new THREE.Quaternion().setFromUnitVectors(localAxis, targetDir);
+            currentOrientQuat.copy(qOrient);
+            
+            if (currentMode === 'water') {
+                const thetaRad = thetaDeg * Math.PI / 180;
+                const qSelf = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), thetaRad);
+                currentSelfQuat.copy(qSelf);
+                const finalQuat = currentOrientQuat.clone().multiply(currentSelfQuat);
+                moleculeContainer.quaternion.copy(finalQuat);
+            } else {
+                // 双原子分子无自转
+                moleculeContainer.quaternion.copy(currentOrientQuat);
+            }
+            updateAllAngleVisuals();
+        }
+        
+        // 保存当前模式状态
+        function saveCurrentModeState() {
+            if (currentMode === 'diatomic') {
+                diatomicState.position.x = moleculeContainer.position.x;
+                diatomicState.position.y = moleculeContainer.position.y;
+                diatomicState.position.z = moleculeContainer.position.z;
+                diatomicState.alpha = parseFloat(alphaSlider.value);
+                diatomicState.beta = parseFloat(betaSlider.value);
+            } else {
+                waterState.position.x = moleculeContainer.position.x;
+                waterState.position.y = moleculeContainer.position.y;
+                waterState.position.z = moleculeContainer.position.z;
+                waterState.alpha = parseFloat(alphaSlider.value);
+                waterState.beta = parseFloat(betaSlider.value);
+                waterState.theta = parseFloat(thetaSlider.value);
+            }
+        }
+        
+        function applyCurrentModeState() {
+            let state = (currentMode === 'diatomic') ? diatomicState : waterState;
+            moleculeContainer.position.set(state.position.x, state.position.y, state.position.z);
+            posXSlider.value = state.position.x;
+            posYSlider.value = state.position.y;
+            posZSlider.value = state.position.z;
+            posXVal.innerText = state.position.x.toFixed(2);
+            posYVal.innerText = state.position.y.toFixed(2);
+            posZVal.innerText = state.position.z.toFixed(2);
+            
+            alphaSlider.value = state.alpha;
+            betaSlider.value = state.beta;
+            alphaVal.innerText = state.alpha.toFixed(0) + '°';
+            betaVal.innerText = state.beta.toFixed(0) + '°';
+            
+            if (currentMode === 'water') {
+                thetaSlider.value = waterState.theta;
+                thetaVal.innerText = waterState.theta.toFixed(0) + '°';
+                setMolecularOrientation(state.alpha, state.beta, waterState.theta);
+            } else {
+                setMolecularOrientation(state.alpha, state.beta, 0);
+            }
+        }
+        
+        // UI 元素
+        const alphaSlider = document.getElementById('alphaSlider');
+        const betaSlider = document.getElementById('betaSlider');
+        const thetaSlider = document.getElementById('thetaSlider');
+        const posXSlider = document.getElementById('posXSlider');
+        const posYSlider = document.getElementById('posYSlider');
+        const posZSlider = document.getElementById('posZSlider');
+        const alphaVal = document.getElementById('alphaVal');
+        const betaVal = document.getElementById('betaVal');
+        const thetaVal = document.getElementById('thetaVal');
+        const posXVal = document.getElementById('posXVal');
+        const posYVal = document.getElementById('posYVal');
+        const posZVal = document.getElementById('posZVal');
+        const thetaGroup = document.getElementById('thetaGroup');
+        
+        function onRotationChange() {
+            const alpha = parseFloat(alphaSlider.value);
+            const beta = parseFloat(betaSlider.value);
+            if (currentMode === 'water') {
+                const theta = parseFloat(thetaSlider.value);
+                setMolecularOrientation(alpha, beta, theta);
+                waterState.alpha = alpha;
+                waterState.beta = beta;
+                waterState.theta = theta;
+            } else {
+                setMolecularOrientation(alpha, beta, 0);
+                diatomicState.alpha = alpha;
+                diatomicState.beta = beta;
+            }
+        }
+        
+        function onPositionChange() {
+            const x = parseFloat(posXSlider.value);
+            const y = parseFloat(posYSlider.value);
+            const z = parseFloat(posZSlider.value);
+            moleculeContainer.position.set(x, y, z);
+            if (currentMode === 'diatomic') {
+                diatomicState.position = { x, y, z };
+            } else {
+                waterState.position = { x, y, z };
+            }
+            updateCMModePosition();
+            posXVal.innerText = x.toFixed(2);
+            posYVal.innerText = y.toFixed(2);
+            posZVal.innerText = z.toFixed(2);
+        }
+        
+        alphaSlider.addEventListener('input', onRotationChange);
+        betaSlider.addEventListener('input', onRotationChange);
+        thetaSlider.addEventListener('input', onRotationChange);
+        posXSlider.addEventListener('input', onPositionChange);
+        posYSlider.addEventListener('input', onPositionChange);
+        posZSlider.addEventListener('input', onPositionChange);
+        
+        // 模式切换
+        const btnDiatomic = document.getElementById('btnDiatomic');
+        const btnWater = document.getElementById('btnWater');
+        
+        function switchToDiatomic() {
+            if (currentMode === 'diatomic') return;
+            saveCurrentModeState();
+            if (currentModelGroup) moleculeContainer.remove(currentModelGroup);
+            currentModelGroup = buildDiatomicModel();
+            moleculeContainer.add(currentModelGroup);
+            currentMode = 'diatomic';
+            thetaSlider.disabled = true;
+            thetaGroup.classList.add('disabled-slider');
+            applyCurrentModeState();
+            updateCMModePosition();
+        }
+        
+        function switchToWater() {
+            if (currentMode === 'water') return;
+            saveCurrentModeState();
+            if (currentModelGroup) moleculeContainer.remove(currentModelGroup);
+            currentModelGroup = buildWaterModel();
+            moleculeContainer.add(currentModelGroup);
+            currentMode = 'water';
+            thetaSlider.disabled = false;
+            thetaGroup.classList.remove('disabled-slider');
+            applyCurrentModeState();
+            updateCMModePosition();
+        }
+        
+        btnDiatomic.addEventListener('click', () => {
+            btnDiatomic.classList.add('active');
+            btnWater.classList.remove('active');
+            switchToDiatomic();
+        });
+        btnWater.addEventListener('click', () => {
+            btnWater.classList.add('active');
+            btnDiatomic.classList.remove('active');
+            switchToWater();
+        });
+        
+        // 初始化
+        createCMInfrastructure();
+        currentModelGroup = buildDiatomicModel();
+        moleculeContainer.add(currentModelGroup);
+        currentMode = 'diatomic';
+        applyCurrentModeState();
+        updateCMModePosition();
+        thetaSlider.disabled = true;
+        thetaGroup.classList.add('disabled-slider');
+        
+        // 星空背景
+        const starGeometry = new THREE.BufferGeometry();
+        const starCount = 1200;
+        const starPositions = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+            starPositions[i*3] = (Math.random() - 0.5) * 200;
+            starPositions[i*3+1] = (Math.random() - 0.5) * 100;
+            starPositions[i*3+2] = (Math.random() - 0.5) * 100 - 50;
+        }
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xaaccff, size: 0.08, transparent: true, opacity: 0.6 }));
+        scene.add(stars);
+        scene.add(new THREE.Mesh(new THREE.SphereGeometry(2.0, 32, 32), new THREE.MeshPhongMaterial({ color: 0x44aaff, transparent: true, opacity: 0.03, side: THREE.DoubleSide })));
+        
+        function animateStars() {
+            stars.rotation.y += 0.0003;
+            stars.rotation.x += 0.0002;
+            requestAnimationFrame(animateStars);
+        }
+        animateStars();
+        
+        let timeAcc = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            timeAcc += 0.016;
+            const intensity = 0.4 + Math.sin(timeAcc * 2) * 0.25;
+            if (currentModelGroup) {
+                const centerSphereMesh = currentModelGroup.children.find(c => c.geometry && c.geometry.type === 'SphereGeometry' && c.material && c.material.emissiveIntensity !== undefined);
+                if (centerSphereMesh) centerSphereMesh.material.emissiveIntensity = intensity * 0.7;
+            }
+            updateCMModePosition();
+            controlsOrbit.update();
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+        animate();
+        
+        // 折叠面板
+        const controlsDiv = document.getElementById('controls');
+        const toggleBtn = document.getElementById('togglePanelBtn');
+        function togglePanel() {
+            const isCollapsed = controlsDiv.classList.contains('controls-collapsed');
+            if (isCollapsed) {
+                controlsDiv.classList.remove('controls-collapsed');
+                toggleBtn.innerHTML = '◀';
+            } else {
+                controlsDiv.classList.add('controls-collapsed');
+                toggleBtn.innerHTML = '▶';
+            }
+            window.dispatchEvent(new Event('resize'));
+        }
+        toggleBtn.addEventListener('click', (e) => { e.stopPropagation(); togglePanel(); });
+        document.querySelector('.controls-header').addEventListener('click', (e) => {
+            if (e.target === toggleBtn || toggleBtn.contains(e.target)) return;
+            togglePanel();
+        });
+        controlsDiv.classList.remove('controls-collapsed');
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        console.log('修正版 | 双原子分子特征轴=X轴，圆弧夹角正确 | 水分子特征轴=Y轴+自转θ | 无自转轴干扰');
+    </script>
+</body>
+</html>
