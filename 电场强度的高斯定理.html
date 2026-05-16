@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>三维电场线模拟器 - 高斯面与动态探测器 | 电动力学可视化</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Microsoft YaHei', 'Segoe UI', 'PingFang SC', Roboto, 'Helvetica Neue', sans-serif;
+        }
+        /* UI 面板样式 */
+        .ui-panel {
+            position: absolute;
+            background: rgba(30, 30, 40, 0.85);
+            backdrop-filter: blur(8px);
+            border-radius: 12px;
+            padding: 12px 18px;
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            pointer-events: auto;
+            z-index: 10;
+            font-size: 14px;
+        }
+        .button-group {
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            max-width: 420px;
+        }
+        .button-group button {
+            background: #1e2a3a;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            font-size: 14px;
+        }
+        .button-group button:hover {
+            background: #2c3e50;
+            transform: scale(1.02);
+        }
+        .button-group button.active {
+            background: #e67e22;
+            box-shadow: 0 0 8px #e67e22;
+        }
+        .control-panel {
+            bottom: 20px;
+            right: 20px;
+            width: 280px;
+            background: rgba(0,0,0,0.75);
+            border-left: 3px solid #f39c12;
+        }
+        .detector-panel {
+            bottom: 20px;
+            left: 20px;
+            width: 250px;
+            background: rgba(0,0,0,0.75);
+            border-left: 3px solid #2ecc71;
+            text-align: left;
+        }
+        .slider-container {
+            margin: 10px 0;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            background: #2c3e50;
+            height: 2px;
+        }
+        .value-display {
+            font-size: 13px;
+            margin-top: 5px;
+            color: #f1c40f;
+        }
+        .detector-info {
+            font-size: 14px;
+            word-break: break-word;
+        }
+        .detector-info span {
+            color: #2ecc71;
+            font-weight: bold;
+        }
+        .field-vector {
+            color: #ffaa66;
+        }
+        hr {
+            margin: 8px 0;
+            border-color: #444;
+        }
+        .note {
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 8px;
+        }
+        button.small-btn {
+            background: #2c3e50;
+            border: none;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 5px;
+            transition: 0.1s;
+        }
+        button.small-btn:hover {
+            background: #e67e22;
+        }
+        .gaussian-group {
+            margin-top: 12px;
+            border-top: 1px solid #555;
+            padding-top: 8px;
+        }
+        .gaussian-slider {
+            margin: 6px 0;
+        }
+        .model-specific {
+            display: none;
+        }
+        .model-specific.visible {
+            display: block;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0;
+            cursor: pointer;
+        }
+        input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="ui-panel button-group">
+        <button id="btn-dipole" class="active">⚡ 电偶极子</button>
+        <button id="btn-line">📏 有限长均匀带电直线</button>
+        <button id="btn-ring">⚪ 均匀带电圆环</button>
+        <button id="btn-sphere">🌐 均匀带电球面</button>
+        <button id="btn-plate">📐 无限大均匀带电平板</button>
+        <button id="btn-cylinder">🧴 无限长均匀带电圆柱</button>
+    </div>
+
+    <div class="ui-panel control-panel">
+        <div style="font-weight:bold; margin-bottom:6px;">🔘 带电量调节 (电场线密度同步变化)</div>
+        <div class="slider-container">
+            <input type="range" id="charge-slider" min="0.2" max="2.5" step="0.01" value="1.0">
+            <div class="value-display" id="charge-value">当前电量系数: 1.00</div>
+        </div>
+        <div style="font-size:12px; margin-top:2px;">⚡ 电量↑ → 电场线密度↑ 场强↑</div>
+
+        <!-- 高斯面控制区域 -->
+        <div class="gaussian-group">
+            <div class="checkbox-label">
+                <input type="checkbox" id="toggle-gaussian"> <span>🔮 显示高斯面 (当前模型)</span>
+            </div>
+            <div id="sphere-gauss-controls" class="model-specific">
+                <div class="gaussian-slider">⚪ 球面高斯面半径: <span id="sphere-radius-val">2.2</span>
+                    <input type="range" id="sphere-gauss-radius" min="1.7" max="3.8" step="0.02" value="2.2">
+                </div>
+            </div>
+            <div id="plate-gauss-controls" class="model-specific">
+                <div class="gaussian-slider">📐 平板高斯面圆柱半径: <span id="plate-radius-val">2.5</span>
+                    <input type="range" id="plate-gauss-radius" min="1.5" max="4.0" step="0.05" value="2.5">
+                </div>
+                <div class="gaussian-slider">📏 圆柱高度: <span id="plate-height-val">2.0</span>
+                    <input type="range" id="plate-gauss-height" min="1.0" max="3.5" step="0.05" value="2.0">
+                </div>
+            </div>
+            <div id="cylinder-gauss-controls" class="model-specific">
+                <div class="gaussian-slider">🧴 高斯面半径 ( > 带电体): <span id="cylinder-radius-val">2.0</span>
+                    <input type="range" id="cylinder-gauss-radius" min="1.5" max="3.5" step="0.05" value="2.0">
+                </div>
+                <div class="gaussian-slider">📏 高斯面高度: <span id="cylinder-height-val">3.0</span>
+                    <input type="range" id="cylinder-gauss-height" min="2.0" max="4.5" step="0.05" value="3.0">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ui-panel detector-panel">
+        <div style="font-weight:bold; margin-bottom:5px;">📍 电场强度探测器</div>
+        <div class="detector-info" id="detector-info">
+            点击场景任意位置移动探测器小球
+        </div>
+        <div class="detector-info" id="field-value" style="margin-top:6px;">
+            场强大小: <span>---</span> N/C<br>
+            方向矢量: <span class="field-vector">---</span>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 8px;">
+            <button id="toggle-detector-btn" class="small-btn">🔴 隐藏探测器</button>
+            <button id="reset-detector-pos" class="small-btn">📍 重置探测器位置</button>
+        </div>
+        <div class="note">✨ 白色小球为探测器 | 箭头长度随场强增大而变长</div>
+    </div>
+
+    <!-- 引入Three.js核心库及扩展 -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // --- 初始化场景 ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050b1a);
+        scene.fog = new THREE.FogExp2(0x050b1a, 0.008);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(6, 5, 8);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = false;
+        controls.enableZoom = true;
+
+        // 辅助元素
+        const gridHelper = new THREE.GridHelper(20, 20, 0x88aaff, 0x335588);
+        gridHelper.position.y = -2.2;
+        gridHelper.material.transparent = true;
+        gridHelper.material.opacity = 0.35;
+        scene.add(gridHelper);
+        
+        const axesHelper = new THREE.AxesHelper(5);
+        axesHelper.material.transparent = true;
+        axesHelper.material.opacity = 0.2;
+        scene.add(axesHelper);
+        
+        const ambientLight = new THREE.AmbientLight(0x404060);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(2, 5, 3);
+        scene.add(dirLight);
+        const backLight = new THREE.PointLight(0x4466cc, 0.4);
+        backLight.position.set(-2, 1, -3);
+        scene.add(backLight);
+
+        // --- 全局变量 ---
+        let currentModel = 'dipole';
+        let chargeFactor = 1.0;
+        const modelChargeMap = { dipole:1.0, line:1.0, ring:1.0, sphere:1.0, plate:1.0, cylinder:1.0 };
+        
+        let currentFieldLines = [];
+        let chargeObjectGroup = null;
+        
+        // 探测器相关
+        const detectorSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.12, 24, 24),
+            new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x4488ff, emissiveIntensity: 0.6 })
+        );
+        scene.add(detectorSphere);
+        let detectorArrow = null;
+        let detectorVisible = true;   // 探测器可见性
+        
+        // 高斯面对象
+        let gaussianSurface = null;
+        let gaussianEnabled = false;
+        
+        // 电荷种子点基础集 (用于动态密度)
+        let baseSeedPointsCache = {};   // 缓存每个模型的基础种子点
+        
+        // 辅助: 射线平面交互
+        const raycaster = new THREE.Raycaster();
+        
+        // --- 电场计算 (所有模型带正电，偶极子一正一负)---
+        function computeElectricField(x, y, z, model, qFactor) {
+            const pos = new THREE.Vector3(x, y, z);
+            const epsilon = 0.15;
+            switch(model) {
+                case 'dipole': {
+                    // 正电荷在 +x 方向，负电荷在 -x 方向
+                    const p1 = new THREE.Vector3(0.8, 0, 0);
+                    const p2 = new THREE.Vector3(-0.8, 0, 0);
+                    let r1 = new THREE.Vector3().subVectors(pos, p1);
+                    let r2 = new THREE.Vector3().subVectors(pos, p2);
+                    let len1 = Math.max(r1.length(), epsilon);
+                    let len2 = Math.max(r2.length(), epsilon);
+                    let E1 = r1.clone().multiplyScalar(qFactor / (len1 * len1 * len1));
+                    let E2 = r2.clone().multiplyScalar(-qFactor / (len2 * len2 * len2));
+                    return E1.add(E2);
+                }
+                case 'line': {
+                    // 有限长均匀带正电直线
+                    const L = 2.2;
+                    const lambda = qFactor / (2 * L);
+                    const segments = 36;
+                    let E = new THREE.Vector3(0,0,0);
+                    for (let i = 0; i <= segments; i++) {
+                        const t = -L + (2*L*i/segments);
+                        const dly = 0.05;
+                        const y1 = t, y2 = t + dly;
+                        const point1 = new THREE.Vector3(0, y1, 0);
+                        const point2 = new THREE.Vector3(0, y2, 0);
+                        const r1 = new THREE.Vector3().subVectors(pos, point1);
+                        const r2 = new THREE.Vector3().subVectors(pos, point2);
+                        const len1 = Math.max(r1.length(), epsilon);
+                        const len2 = Math.max(r2.length(), epsilon);
+                        const dq = lambda * dly;
+                        const dE1 = r1.clone().multiplyScalar(dq / (len1 * len1 * len1));
+                        const dE2 = r2.clone().multiplyScalar(dq / (len2 * len2 * len2));
+                        E.add(dE1).add(dE2);
+                    }
+                    return E.multiplyScalar(0.5);
+                }
+                case 'ring': {
+                    // 均匀带正电圆环
+                    const R = 1.6;
+                    const totalCharge = qFactor;
+                    const lambda = totalCharge / (2 * Math.PI * R);
+                    const N_seg = 64;
+                    let E = new THREE.Vector3(0,0,0);
+                    for (let i=0; i<N_seg; i++) {
+                        const angle = 2*Math.PI * i / N_seg;
+                        const xc = R * Math.cos(angle);
+                        const zc = R * Math.sin(angle);
+                        const dq = lambda * (2*Math.PI*R/N_seg);
+                        const rVec = new THREE.Vector3(x - xc, y, z - zc);
+                        const len = Math.max(rVec.length(), epsilon);
+                        const dE = rVec.clone().multiplyScalar(dq / (len * len * len));
+                        E.add(dE);
+                    }
+                    return E;
+                }
+                case 'sphere': {
+                    // 均匀带正电球面，外部场等效点电荷，内部为零
+                    const R = 1.5;
+                    const r = Math.sqrt(x*x + y*y + z*z);
+                    if (r < R - 0.05) return new THREE.Vector3(0,0,0);
+                    const radial = new THREE.Vector3(x, y, z).normalize();
+                    const magnitude = qFactor / (Math.max(r, R) * Math.max(r, R));
+                    return radial.multiplyScalar(magnitude);
+                }
+                case 'plate': {
+                    // 无限大均匀带正电平板，场强恒定垂直于板面向外
+                    const y0 = -0.2;
+                    const direction = (y > y0) ? 1 : -1;
+                    const sigma = qFactor * 0.8;
+                    const magnitude = sigma * 1.5;
+                    return new THREE.Vector3(0, direction * magnitude, 0);
+                }
+                case 'cylinder': {
+                    // 无限长均匀带正电圆柱，径向向外
+                    const R = 1.2;
+                    const rho = Math.sqrt(x*x + z*z);
+                    if (rho < R - 0.05) return new THREE.Vector3(0,0,0);
+                    const radialDir = new THREE.Vector3(x, 0, z).normalize();
+                    const magnitude = qFactor / Math.max(rho, R);
+                    return radialDir.multiplyScalar(magnitude * 1.2);
+                }
+                default: return new THREE.Vector3(0,0,0);
+            }
+        }
+        
+        // --- 根据电量系数动态调整种子点密度 (数量随系数增减，实现电场线密度变化)---
+        function adjustSeedsByCharge(baseSeeds, charge) {
+            if (!baseSeeds.length) return [];
+            // charge范围 0.2~2.5, 映射密度因子 0.4 ~ 2.0
+            let density = 0.4 + charge * 0.64;
+            density = Math.min(2.0, Math.max(0.4, density));
+            const targetCount = Math.floor(baseSeeds.length * density);
+            if (targetCount <= 0) return [];
+            if (targetCount >= baseSeeds.length) {
+                // 需要增加: 复制并添加微小偏移
+                let newSeeds = [...baseSeeds];
+                const extra = targetCount - baseSeeds.length;
+                for (let i = 0; i < extra; i++) {
+                    const src = baseSeeds[i % baseSeeds.length];
+                    const offset = new THREE.Vector3((Math.random() - 0.5)*0.35, (Math.random()-0.5)*0.35, (Math.random()-0.5)*0.35);
+                    newSeeds.push(src.clone().add(offset));
+                }
+                return newSeeds;
+            } else {
+                // 减少: 随机采样
+                const step = baseSeeds.length / targetCount;
+                const sampled = [];
+                for (let i = 0; i < targetCount; i++) {
+                    const idx = Math.floor(i * step) % baseSeeds.length;
+                    sampled.push(baseSeeds[idx].clone());
+                }
+                return sampled;
+            }
+        }
+        
+        // 生成模型的基础种子集 (缓存)
+        function getBaseSeedPoints(model) {
+            if (baseSeedPointsCache[model]) return baseSeedPointsCache[model];
+            const points = [];
+            switch(model) {
+                case 'dipole':
+                    for (let ang = 0; ang < Math.PI*2; ang+=Math.PI/6) {
+                        for (let r = 1.2; r <= 3.2; r+=0.9) {
+                            let x = Math.cos(ang)*r + 0.2;
+                            let z = Math.sin(ang)*r;
+                            points.push(new THREE.Vector3(x, 0.3, z));
+                            points.push(new THREE.Vector3(-x, -0.2, z));
+                        }
+                    }
+                    points.push(new THREE.Vector3(0.5, 1.2, 0.8), new THREE.Vector3(-0.5, -1, -0.6));
+                    break;
+                case 'line':
+                    for (let rad = 0.8; rad <= 3.2; rad+=0.8) {
+                        for (let ang = 0; ang < 2*Math.PI; ang+=Math.PI/4) {
+                            let x = Math.cos(ang)*rad;
+                            let z = Math.sin(ang)*rad;
+                            points.push(new THREE.Vector3(x, -1.2, z), new THREE.Vector3(x, 0.8, z), new THREE.Vector3(x, 1.8, z));
+                        }
+                    }
+                    break;
+                case 'ring':
+                    for (let rad = 1.0; rad <= 3.5; rad+=0.9) {
+                        for (let ang = 0; ang < 2*Math.PI; ang+=Math.PI/5) {
+                            let x = Math.cos(ang)*rad;
+                            let z = Math.sin(ang)*rad;
+                            points.push(new THREE.Vector3(x, 0.5, z), new THREE.Vector3(x, -0.6, z), new THREE.Vector3(x, 1.4, z));
+                        }
+                    }
+                    break;
+                case 'sphere':
+                    for (let r = 2.0; r <= 4.5; r+=0.9) {
+                        for (let theta = 0; theta < Math.PI; theta+=Math.PI/4) {
+                            for (let phi = 0; phi < 2*Math.PI; phi+=Math.PI/4) {
+                                let x = r * Math.sin(theta)*Math.cos(phi);
+                                let y = r * Math.sin(theta)*Math.sin(phi);
+                                let z = r * Math.cos(theta);
+                                points.push(new THREE.Vector3(x, y, z));
+                            }
+                        }
+                    }
+                    break;
+                case 'plate':
+                    for (let i = -2.5; i <= 2.5; i+=1.0) {
+                        for (let j = -2.5; j <= 2.5; j+=1.0) {
+                            points.push(new THREE.Vector3(i, 0.8, j));
+                            points.push(new THREE.Vector3(i, -1.2, j));
+                        }
+                    }
+                    break;
+                case 'cylinder':
+                    for (let rad = 1.8; rad <= 4.5; rad+=1.0) {
+                        for (let ang = 0; ang < 2*Math.PI; ang+=Math.PI/6) {
+                            let x = Math.cos(ang)*rad;
+                            let z = Math.sin(ang)*rad;
+                            for (let y = -2.2; y <= 2.2; y+=1.2) points.push(new THREE.Vector3(x, y, z));
+                        }
+                    }
+                    break;
+            }
+            baseSeedPointsCache[model] = points.filter(p => Math.abs(p.x)<7 && Math.abs(p.y)<6 && Math.abs(p.z)<7);
+            return baseSeedPointsCache[model];
+        }
+        
+        // 生成电场线 (动态种子密度，颜色固定为青蓝色，不随电量变化)
+        function generateFieldLines(model, charge) {
+            currentFieldLines.forEach(line => scene.remove(line));
+            currentFieldLines = [];
+            const baseSeeds = getBaseSeedPoints(model);
+            const finalSeeds = adjustSeedsByCharge(baseSeeds, charge);
+            if (finalSeeds.length === 0) return;
+            
+            const stepSize = 0.08;
+            const maxSteps = 160;
+            function integrate(seed, sign) {
+                let points = [seed.clone()];
+                let current = seed.clone();
+                for (let step = 0; step < maxSteps; step++) {
+                    let E = computeElectricField(current.x, current.y, current.z, model, charge);
+                    if (E.length() < 1e-6) break;
+                    let dir = E.clone().normalize();
+                    if (sign < 0) dir.negate();
+                    let next = current.clone().add(dir.multiplyScalar(stepSize));
+                    if (Math.abs(next.x) > 8.5 || Math.abs(next.y) > 7.2 || Math.abs(next.z) > 8.5) break;
+                    // 避开电荷体内部奇点
+                    if ((model === 'dipole' && (next.distanceTo(new THREE.Vector3(0.8,0,0))<0.2 || next.distanceTo(new THREE.Vector3(-0.8,0,0))<0.2)) ||
+                        (model === 'line' && Math.abs(next.x)<0.3 && Math.abs(next.z)<0.3 && Math.abs(next.y)<2.4) ||
+                        (model === 'ring' && Math.sqrt(next.x*next.x+next.z*next.z)<0.4 && Math.abs(next.y)<0.5) ||
+                        (model === 'sphere' && next.length()<1.2) ||
+                        (model === 'cylinder' && Math.sqrt(next.x*next.x+next.z*next.z)<0.9)) break;
+                    points.push(next.clone());
+                    current.copy(next);
+                    if (points.length > 2 && points[points.length-1].distanceTo(points[points.length-2]) < 0.01) break;
+                }
+                return points;
+            }
+            // 固定颜色: 明亮的青蓝色 (#44aaff)，不随电量改变
+            const lineColor = 0x44aaff;
+            finalSeeds.forEach(seed => {
+                const forward = integrate(seed, 1);
+                const backward = integrate(seed, -1);
+                let fullPoints = [...backward.reverse(), ...forward.slice(1)];
+                if (fullPoints.length < 4) return;
+                const geometry = new THREE.BufferGeometry();
+                const vertices = [];
+                fullPoints.forEach(p => { vertices.push(p.x, p.y, p.z); });
+                geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+                const material = new THREE.LineBasicMaterial({ color: lineColor, linewidth: 1, transparent: true, opacity: 0.85 });
+                const lineObj = new THREE.Line(geometry, material);
+                currentFieldLines.push(lineObj);
+                scene.add(lineObj);
+            });
+        }
+        
+        // 更新探测器显示 (箭头长度随场强大小变化)
+        function updateDetector() {
+            if (!detectorVisible) return;
+            const pos = detectorSphere.position;
+            const E = computeElectricField(pos.x, pos.y, pos.z, currentModel, chargeFactor);
+            const magnitude = Math.sqrt(E.x*E.x + E.y*E.y + E.z*E.z);
+            document.getElementById('field-value').innerHTML = `场强大小: <span>${magnitude.toFixed(4)}</span> N/C<br>
+                                                                 方向矢量: <span class="field-vector">(${E.x.toFixed(3)}, ${E.y.toFixed(3)}, ${E.z.toFixed(3)})</span>`;
+            if (detectorArrow) scene.remove(detectorArrow);
+            if (magnitude > 0.001) {
+                const dir = new THREE.Vector3(E.x, E.y, E.z).normalize();
+                // 箭头长度随场强动态: 最小0.35，最大1.4
+                let arrowLen = 0.35 + Math.min(1.2, magnitude * 0.45);
+                arrowLen = Math.min(1.4, arrowLen);
+                detectorArrow = new THREE.ArrowHelper(dir, pos, arrowLen, 0xffaa44, 0.35, 0.2);
+                scene.add(detectorArrow);
+            } else {
+                detectorArrow = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), pos, 0.3, 0x888888);
+                scene.add(detectorArrow);
+            }
+        }
+        
+        // 高斯面构建与更新 (透明，可见内部电场线)
+        function updateGaussianSurface() {
+            if (gaussianSurface) scene.remove(gaussianSurface);
+            if (!gaussianEnabled) return;
+            let geom;
+            const transparentMat = new THREE.MeshPhongMaterial({ color: 0x33aaff, side: THREE.DoubleSide, transparent: true, opacity: 0.2, emissive: 0x004466 });
+            const wireframeMat = new THREE.MeshBasicMaterial({ color: 0x88ccff, wireframe: true, transparent: true, opacity: 0.4 });
+            switch(currentModel) {
+                case 'sphere':
+                    const radius = parseFloat(document.getElementById('sphere-gauss-radius').value);
+                    geom = new THREE.SphereGeometry(radius, 48, 32);
+                    gaussianSurface = new THREE.Mesh(geom, transparentMat);
+                    scene.add(gaussianSurface);
+                    const wireframeSphere = new THREE.Mesh(geom, wireframeMat);
+                    gaussianSurface.add(wireframeSphere);
+                    break;
+                case 'plate':
+                    const rad = parseFloat(document.getElementById('plate-gauss-radius').value);
+                    const height = parseFloat(document.getElementById('plate-gauss-height').value);
+                    geom = new THREE.CylinderGeometry(rad, rad, height, 48, 32);
+                    gaussianSurface = new THREE.Mesh(geom, transparentMat);
+                    gaussianSurface.position.y = -0.2;  // 平板中心在 y=-0.2，圆柱中心对齐
+                    scene.add(gaussianSurface);
+                    const wireframeCyl = new THREE.Mesh(geom, wireframeMat);
+                    gaussianSurface.add(wireframeCyl);
+                    break;
+                case 'cylinder':
+                    const cylRad = parseFloat(document.getElementById('cylinder-gauss-radius').value);
+                    const cylHeight = parseFloat(document.getElementById('cylinder-gauss-height').value);
+                    geom = new THREE.CylinderGeometry(cylRad, cylRad, cylHeight, 64, 32);
+                    gaussianSurface = new THREE.Mesh(geom, transparentMat);
+                    gaussianSurface.position.y = 0;
+                    scene.add(gaussianSurface);
+                    const wireframeCyl2 = new THREE.Mesh(geom, wireframeMat);
+                    gaussianSurface.add(wireframeCyl2);
+                    break;
+                default: return;
+            }
+        }
+        
+        // 切换模型时更新视觉和场线
+        function switchModel(model) {
+            currentModel = model;
+            chargeFactor = modelChargeMap[model];
+            document.getElementById('charge-slider').value = chargeFactor;
+            document.getElementById('charge-value').innerText = `当前电量系数: ${chargeFactor.toFixed(2)}`;
+            updateChargeVisual(model);
+            generateFieldLines(model, chargeFactor);
+            updateDetector();
+            // 高斯面UI显隐
+            document.querySelectorAll('.model-specific').forEach(div => div.classList.remove('visible'));
+            if (model === 'sphere') document.getElementById('sphere-gauss-controls').classList.add('visible');
+            if (model === 'plate') document.getElementById('plate-gauss-controls').classList.add('visible');
+            if (model === 'cylinder') document.getElementById('cylinder-gauss-controls').classList.add('visible');
+            // 刷新高斯面显示
+            if (gaussianEnabled) updateGaussianSurface();
+            else if (gaussianSurface) { scene.remove(gaussianSurface); gaussianSurface = null; }
+        }
+        
+        // 更新电荷视觉表现 (偶极子红蓝，其余正电荷用暖金色)
+        function updateChargeVisual(model) {
+            if (chargeObjectGroup) scene.remove(chargeObjectGroup);
+            chargeObjectGroup = new THREE.Group();
+            if (model === 'dipole') {
+                const posS = new THREE.Mesh(new THREE.SphereGeometry(0.28, 32, 32), new THREE.MeshStandardMaterial({ color: 0xff4444, emissive: 0x441100 }));
+                posS.position.set(0.8,0,0);
+                const negS = new THREE.Mesh(new THREE.SphereGeometry(0.28, 32, 32), new THREE.MeshStandardMaterial({ color: 0x44aaff, emissive: 0x004466 }));
+                negS.position.set(-0.8,0,0);
+                chargeObjectGroup.add(posS, negS);
+            } else {
+                // 其余正电荷模型统一用暖色金属质感
+                const matStd = new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0x442200, roughness: 0.4, metalness: 0.6 });
+                switch(model) {
+                    case 'line':
+                        const lineMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,4.4,12), matStd);
+                        chargeObjectGroup.add(lineMesh);
+                        break;
+                    case 'ring':
+                        const torus = new THREE.Mesh(new THREE.TorusGeometry(1.6,0.08,64,128), matStd);
+                        torus.rotation.x = Math.PI/2;
+                        chargeObjectGroup.add(torus);
+                        break;
+                    case 'sphere':
+                        const sphereM = new THREE.Mesh(new THREE.SphereGeometry(1.5,64,64), matStd);
+                        chargeObjectGroup.add(sphereM);
+                        break;
+                    case 'plate':
+                        const plateM = new THREE.Mesh(new THREE.BoxGeometry(5.0,0.08,5.0), matStd);
+                        plateM.position.y = -0.2;
+                        chargeObjectGroup.add(plateM);
+                        break;
+                    case 'cylinder':
+                        const cylM = new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,4.6,48), matStd);
+                        chargeObjectGroup.add(cylM);
+                        break;
+                }
+            }
+            scene.add(chargeObjectGroup);
+        }
+        
+        function onChargeChange(value) {
+            chargeFactor = parseFloat(value);
+            modelChargeMap[currentModel] = chargeFactor;
+            document.getElementById('charge-value').innerText = `当前电量系数: ${chargeFactor.toFixed(2)}`;
+            generateFieldLines(currentModel, chargeFactor);
+            updateDetector();
+        }
+        
+        // 探测器显隐控制
+        function toggleDetector(visible) {
+            detectorVisible = visible;
+            detectorSphere.visible = visible;
+            if (detectorArrow) detectorArrow.visible = visible;
+            if (!visible) {
+                document.getElementById('field-value').innerHTML = `场强大小: <span>---</span> N/C<br>方向矢量: <span>---</span>`;
+                document.getElementById('toggle-detector-btn').innerHTML = '🟢 显示探测器';
+            } else {
+                updateDetector();
+                document.getElementById('toggle-detector-btn').innerHTML = '🔴 隐藏探测器';
+            }
+        }
+        
+        // 事件绑定
+        document.getElementById('btn-dipole').addEventListener('click', () => { switchModel('dipole'); setActive('btn-dipole'); });
+        document.getElementById('btn-line').addEventListener('click', () => { switchModel('line'); setActive('btn-line'); });
+        document.getElementById('btn-ring').addEventListener('click', () => { switchModel('ring'); setActive('btn-ring'); });
+        document.getElementById('btn-sphere').addEventListener('click', () => { switchModel('sphere'); setActive('btn-sphere'); });
+        document.getElementById('btn-plate').addEventListener('click', () => { switchModel('plate'); setActive('btn-plate'); });
+        document.getElementById('btn-cylinder').addEventListener('click', () => { switchModel('cylinder'); setActive('btn-cylinder'); });
+        document.getElementById('charge-slider').addEventListener('input', (e) => onChargeChange(e.target.value));
+        document.getElementById('toggle-detector-btn').addEventListener('click', () => toggleDetector(!detectorVisible));
+        document.getElementById('reset-detector-pos').addEventListener('click', () => { detectorSphere.position.set(1.5,1.2,1.5); if(detectorVisible) updateDetector(); });
+        document.getElementById('toggle-gaussian').addEventListener('change', (e) => { gaussianEnabled = e.target.checked; updateGaussianSurface(); });
+        document.getElementById('sphere-gauss-radius').addEventListener('input', (e) => { document.getElementById('sphere-radius-val').innerText = e.target.value; if(gaussianEnabled && currentModel==='sphere') updateGaussianSurface(); });
+        document.getElementById('plate-gauss-radius').addEventListener('input', (e) => { document.getElementById('plate-radius-val').innerText = e.target.value; if(gaussianEnabled && currentModel==='plate') updateGaussianSurface(); });
+        document.getElementById('plate-gauss-height').addEventListener('input', (e) => { document.getElementById('plate-height-val').innerText = e.target.value; if(gaussianEnabled && currentModel==='plate') updateGaussianSurface(); });
+        document.getElementById('cylinder-gauss-radius').addEventListener('input', (e) => { document.getElementById('cylinder-radius-val').innerText = e.target.value; if(gaussianEnabled && currentModel==='cylinder') updateGaussianSurface(); });
+        document.getElementById('cylinder-gauss-height').addEventListener('input', (e) => { document.getElementById('cylinder-height-val').innerText = e.target.value; if(gaussianEnabled && currentModel==='cylinder') updateGaussianSurface(); });
+        
+        function setActive(activeId) {
+            ['btn-dipole','btn-line','btn-ring','btn-sphere','btn-plate','btn-cylinder'].forEach(id => {
+                document.getElementById(id).classList.toggle('active', id===activeId);
+            });
+        }
+        
+        // 点击场景移动探测器 (仅当探测器可见时)
+        window.addEventListener('click', (event) => {
+            if (!detectorVisible) return;
+            const mouse = new THREE.Vector2();
+            mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+            mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const targetPoint = new THREE.Vector3();
+            if (raycaster.ray.intersectPlane(plane, targetPoint)) {
+                let newX = Math.min(6.5, Math.max(-6.5, targetPoint.x));
+                let newZ = Math.min(6.5, Math.max(-6.5, targetPoint.z));
+                let newY = Math.min(5, Math.max(-4, targetPoint.y));
+                detectorSphere.position.set(newX, newY, newZ);
+                updateDetector();
+            }
+        });
+        
+        // 初始化
+        updateChargeVisual('dipole');
+        generateFieldLines('dipole', 1.0);
+        detectorSphere.position.set(1.2, 1.0, 1.2);
+        updateDetector();
+        setActive('btn-dipole');
+        gaussianEnabled = false;
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+        animate();
+        window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); labelRenderer.setSize(window.innerWidth, window.innerHeight); });
+    </script>
+</body>
+</html>
