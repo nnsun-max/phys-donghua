@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>劈尖干涉 3D 模拟</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
+            background: #ffffff;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            color: #1e293b;
+        }
+
+        #panel {
+            width: 340px;
+            min-width: 340px;
+            height: 100vh;
+            background: #f8fafc;
+            border-right: 1px solid #e2e8f0;
+            padding: 28px 22px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.04);
+            z-index: 10;
+            position: relative;
+        }
+        #panel::-webkit-scrollbar { width: 4px; }
+        #panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+        #panel h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        #panel h1 small { font-size: 14px; font-weight: 400; color: #64748b; margin-left: 6px; }
+        .divider { border: none; border-top: 1px solid #e2e8f0; margin: 2px 0 4px 0; }
+
+        .ctrl-group {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 14px 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            border: 1px solid #eef2f6;
+        }
+        .ctrl-group label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 500;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+        .ctrl-group label .val {
+            color: #3b82f6;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            background: #eff6ff;
+            padding: 0 8px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .ctrl-group input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #e2e8f0;
+            border-radius: 4px;
+            outline: none;
+            margin: 4px 0 2px 0;
+        }
+        .ctrl-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 1px 4px rgba(59, 130, 246, 0.3);
+            transition: 0.1s;
+        }
+        .ctrl-group input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.12);
+            background: #2563eb;
+        }
+        .ctrl-group input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 1px 4px rgba(59, 130, 246, 0.3);
+        }
+        .ctrl-group .hint { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+
+        .color-preview {
+            display: inline-block;
+            width: 30px;
+            height: 16px;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+            vertical-align: middle;
+            margin-left: 6px;
+        }
+
+        .formula-box {
+            background: #f1f5f9;
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            border-left: 3px solid #3b82f6;
+            margin-top: 2px;
+            color: #0f172a;
+        }
+        .formula-box .math { font-weight: 600; color: #1e40af; }
+        .formula-box .result { color: #16a34a; font-weight: 600; }
+        .formula-box .label {
+            font-size: 12px;
+            font-weight: 400;
+            color: #475569;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        #canvas-container {
+            flex: 1;
+            height: 100vh;
+            background: #ffffff;
+            position: relative;
+            overflow: hidden;
+        }
+        #canvas-container canvas { display: block; width: 100%; height: 100%; }
+
+        #hint-3d {
+            position: absolute;
+            bottom: 24px;
+            right: 28px;
+            font-size: 12px;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 6px 14px;
+            border-radius: 20px;
+            backdrop-filter: blur(4px);
+            border: 1px solid #eef2f6;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        @media (max-width: 820px) {
+            #panel { width: 280px; min-width: 280px; padding: 20px 16px; }
+            #panel h1 { font-size: 18px; }
+        }
+        @media (max-width: 640px) {
+            body { flex-direction: column; }
+            #panel {
+                width: 100%;
+                min-width: unset;
+                height: 45vh;
+                border-right: none;
+                border-bottom: 1px solid #e2e8f0;
+                padding: 16px;
+                gap: 12px;
+            }
+            #canvas-container { height: 55vh; }
+            #hint-3d { bottom: 12px; right: 16px; font-size: 11px; padding: 4px 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="panel">
+        <h1>⚡ 劈尖干涉 <small>3D 模拟</small></h1>
+        <hr class="divider" />
+
+        <div class="ctrl-group">
+            <label>纸片厚度 d <span class="val" id="dVal">0.050 mm</span></label>
+            <input type="range" id="dSlider" min="0.010" max="0.100" step="0.001" value="0.050" />
+            <div class="hint">↑ 条纹变密，劈尖夹角增大</div>
+        </div>
+
+        <div class="ctrl-group">
+            <label>入射光波长 λ <span class="val" id="lambdaVal">550 nm</span></label>
+            <input type="range" id="lambdaSlider" min="380" max="780" step="1" value="550" />
+            <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+                <span style="font-size:11px; color:#94a3b8;">波长</span>
+                <span class="color-preview" id="colorPreview" style="background:#aaff00;"></span>
+                <span style="font-size:11px; color:#94a3b8; margin-left:auto;" id="lambdaColorName">黄绿</span>
+            </div>
+            <div class="hint">↑ 条纹变疏，颜色偏红</div>
+        </div>
+
+        <div class="ctrl-group">
+            <label>3D 夸张倍数 <span class="val" id="scaleVal">300</span></label>
+            <input type="range" id="scaleSlider" min="100" max="2000" step="10" value="300" />
+            <div class="hint">↑ 放大纸片厚度和劈尖夹角</div>
+        </div>
+
+        <!-- 缺陷参数区 (无下拉菜单，滑块始终生效) -->
+        <div style="background:#f1f5f9; border-radius:12px; padding:10px 12px; border:1px solid #e2e8f0;">
+            <div style="font-size:12px; font-weight:600; color:#475569; margin-bottom:6px;">⚙️ 缺陷参数 (高度>0为突起，<0为凹陷)</div>
+            <div class="ctrl-group" style="padding:8px 10px; background:white;">
+                <label>X 位置 <span class="val" id="defXVal">50 %</span></label>
+                <input type="range" id="defXSlider" min="0" max="100" step="1" value="50" />
+            </div>
+            <div class="ctrl-group" style="padding:8px 10px; background:white;">
+                <label>Z 位置 <span class="val" id="defZVal">50 %</span></label>
+                <input type="range" id="defZSlider" min="0" max="100" step="1" value="50" />
+            </div>
+            <div class="ctrl-group" style="padding:8px 10px; background:white;">
+                <label>半径 <span class="val" id="defRadVal">10 %</span></label>
+                <input type="range" id="defRadSlider" min="3" max="40" step="1" value="10" />
+                <div class="hint">占玻璃板宽度的百分比</div>
+            </div>
+            <div class="ctrl-group" style="padding:8px 10px; background:white;">
+                <label>高度 <span class="val" id="defHtVal">300 nm</span></label>
+                <input type="range" id="defHtSlider" min="-1500" max="1500" step="10" value="300" />
+                <div class="hint">正=突起 (条纹左弯) ，负=凹陷 (条纹右弯)</div>
+            </div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="ctrl-group" style="padding:12px 14px;">
+            <div style="font-size:12px; font-weight:600; color:#0f172a; margin-bottom:4px;">📐 纸片厚度公式</div>
+            <div class="formula-box" style="padding:10px 12px;">
+                <div><span class="label">条纹间距 </span>Δx = <span class="math">λ·L</span> / <span class="math">2·d</span></div>
+                <div style="font-size:12px; margin-top:2px; border-top:1px dashed #d1d9e6; padding-top:4px;">
+                    <span class="label">⇒ d = </span><span class="math">λ·L</span> / <span class="math">2·Δx</span>
+                </div>
+                <div style="margin-top:4px; font-size:12px; display:flex; justify-content:space-between;">
+                    <span class="label">Δx = <span id="dxDisplay" class="result">0.000</span> mm</span>
+                    <span class="label">d = <span id="dCalcDisplay" class="result">0.050</span> mm</span>
+                </div>
+            </div>
+            <div style="margin-top:4px; font-size:11px; color:#64748b; line-height:1.5; background:#f8fafc; padding:6px 10px; border-radius:8px;">
+                <span style="font-weight:500;">L</span> = 10.0 cm &nbsp;·&nbsp; <span style="font-weight:500;">λ</span> 波长 &nbsp;·&nbsp; <span style="font-weight:500;">d</span> 纸片厚度
+            </div>
+        </div>
+
+        <div style="margin-top:auto; font-size:11px; color:#94a3b8; text-align:center; padding-top:10px; border-top:1px solid #eef2f6;">
+            拖拽旋转 · 滚轮缩放 · 右键平移
+        </div>
+    </div>
+
+    <div id="canvas-container">
+        <div id="hint-3d">🖱 自由视角</div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.163.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ===== DOM 引用 =====
+        const container = document.getElementById('canvas-container');
+        const dSlider = document.getElementById('dSlider');
+        const dVal = document.getElementById('dVal');
+        const lambdaSlider = document.getElementById('lambdaSlider');
+        const lambdaVal = document.getElementById('lambdaVal');
+        const colorPreview = document.getElementById('colorPreview');
+        const lambdaColorName = document.getElementById('lambdaColorName');
+        const scaleSlider = document.getElementById('scaleSlider');
+        const scaleVal = document.getElementById('scaleVal');
+        const defXSlider = document.getElementById('defXSlider');
+        const defXVal = document.getElementById('defXVal');
+        const defZSlider = document.getElementById('defZSlider');
+        const defZVal = document.getElementById('defZVal');
+        const defRadSlider = document.getElementById('defRadSlider');
+        const defRadVal = document.getElementById('defRadVal');
+        const defHtSlider = document.getElementById('defHtSlider');
+        const defHtVal = document.getElementById('defHtVal');
+        const dxDisplay = document.getElementById('dxDisplay');
+        const dCalcDisplay = document.getElementById('dCalcDisplay');
+
+        // ===== Three.js 场景 =====
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+
+        const camera = new THREE.PerspectiveCamera(32, container.clientWidth / container.clientHeight, 0.1, 100);
+        camera.position.set(14, 9, 18);
+        camera.lookAt(0, 1.5, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 1.5, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.minDistance = 4;
+        controls.maxDistance = 40;
+        controls.maxPolarAngle = Math.PI / 2.05;
+        controls.update();
+
+        // ===== 灯光 =====
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
+        dirLight.position.set(4, 12, 6);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        const d = 15;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 25;
+        scene.add(dirLight);
+
+        const fillLight = new THREE.DirectionalLight(0xdbeafe, 0.5);
+        fillLight.position.set(-3, 4, -5);
+        scene.add(fillLight);
+
+        const backLight = new THREE.DirectionalLight(0xf1f5f9, 0.3);
+        backLight.position.set(0, 2, -8);
+        scene.add(backLight);
+
+        // ===== 常量 =====
+        const L = 10.0;          // 玻璃板长度 (单位)
+        const W = 5.6;           // 宽度 (单位)
+        const H = 0.55;          // 厚度 (单位)
+        const AIR_N = 1.0003;
+
+        // ===== 工具：波长 → RGB =====
+        function wavelengthToRGB(wl) {
+            let r, g, b;
+            if (wl >= 380 && wl < 440) { r = -(wl - 440) / (440 - 380); g = 0; b = 1; }
+            else if (wl >= 440 && wl < 490) { r = 0; g = (wl - 440) / (490 - 440); b = 1; }
+            else if (wl >= 490 && wl < 510) { r = 0; g = 1; b = -(wl - 510) / (510 - 490); }
+            else if (wl >= 510 && wl < 580) { r = (wl - 510) / (510 - 580); g = 1; b = 0; }
+            else if (wl >= 580 && wl < 645) { r = 1; g = -(wl - 645) / (645 - 580); b = 0; }
+            else if (wl >= 645 && wl <= 780) { r = 1; g = 0; b = 0; }
+            else { r = 0; g = 0; b = 0; }
+            let factor;
+            if (wl >= 380 && wl < 420) factor = 0.3 + 0.7 * (wl - 380) / (420 - 380);
+            else if (wl >= 420 && wl <= 700) factor = 1.0;
+            else if (wl > 700 && wl <= 780) factor = 0.3 + 0.7 * (780 - wl) / (780 - 700);
+            else factor = 0;
+            return { r: r * factor, g: g * factor, b: b * factor };
+        }
+
+        function colorName(wl) {
+            if (wl < 440) return '紫';
+            if (wl < 490) return '蓝';
+            if (wl < 510) return '青';
+            if (wl < 560) return '绿';
+            if (wl < 590) return '黄绿';
+            if (wl < 620) return '黄';
+            if (wl < 670) return '橙';
+            return '红';
+        }
+
+        // ===== 生成彩色条纹纹理 (使用缺陷参数，无下拉菜单) =====
+        function generateStripeTexture(d_mm, lambda_nm, defX_pct, defZ_pct, defRad_pct, defHt_nm) {
+            const texW = 1024, texH = 512;
+            const canvas = document.createElement('canvas');
+            canvas.width = texW;
+            canvas.height = texH;
+            const ctx = canvas.getContext('2d');
+
+            const L_mm = L * 10; // 100 mm
+            const W_mm = W * 10; // 56 mm
+            const lambda = lambda_nm / 1e6; // mm
+            const theta = d_mm / L_mm; // 真实楔角
+
+            const color = wavelengthToRGB(lambda_nm);
+            const r = color.r, g = color.g, b = color.b;
+
+            const imageData = ctx.createImageData(texW, texH);
+            const data = imageData.data;
+            const xMin = -L_mm / 2, xMax = L_mm / 2;
+            const zMin = -W_mm / 2, zMax = W_mm / 2;
+
+            // 缺陷物理参数 (单位: mm)
+            const defectX_mm = (defX_pct / 100) * L_mm - L_mm / 2;
+            const defectZ_mm = (defZ_pct / 100) * W_mm - W_mm / 2;
+            const defectRadius = (defRad_pct / 100) * W_mm;
+            const defectHeight = defHt_nm / 1e6; // nm -> mm
+
+            // 只有高度不为0且半径>0时才施加影响
+            const hasDefect = (Math.abs(defectHeight) > 1e-9) && (defectRadius > 0.001);
+
+            for (let py = 0; py < texH; py++) {
+                for (let px = 0; px < texW; px++) {
+                    const x = xMin + (px / texW) * (xMax - xMin);
+                    const z = zMin + (py / texH) * (zMax - zMin);
+                    let t = d_mm * (x + L_mm / 2) / L_mm;
+                    if (t < 0) t = 0;
+
+                    if (hasDefect) {
+                        const dx = x - defectX_mm;
+                        const dz = z - defectZ_mm;
+                        const dist = Math.sqrt(dx*dx + dz*dz);
+                        if (dist < defectRadius) {
+                            const factor = Math.cos((dist / defectRadius) * (Math.PI / 2));
+                            t += defectHeight * factor * factor;
+                        }
+                    }
+                    if (t < 0) t = 0;
+
+                    const phase = (2 * Math.PI * 2 * t) / lambda;
+                    const intensity = Math.pow(Math.cos(phase / 2), 2);
+                    const idx = (py * texW + px) * 4;
+                    data[idx] = Math.round(r * 255 * intensity);
+                    data[idx+1] = Math.round(g * 255 * intensity);
+                    data[idx+2] = Math.round(b * 255 * intensity);
+                    data[idx+3] = 255;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            // 边框装饰
+            ctx.strokeStyle = 'rgba(100,116,139,0.12)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4,6]);
+            ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(texW,0); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0,texH-1); ctx.lineTo(texW,texH-1); ctx.stroke();
+            ctx.setLineDash([]);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.generateMipmaps = true;
+            return texture;
+        }
+
+        // ===== 动态对象管理 =====
+        let dynamicObjects = {
+            upperGlass: null, paper: null, paperEdge: null, stripe: null,
+            defect: null, defectRings: [], rays: null, labels: null, lowerGlass: null
+        };
+
+        function clearDynamic() {
+            const toRemove = [
+                dynamicObjects.upperGlass, dynamicObjects.paper, dynamicObjects.paperEdge,
+                dynamicObjects.stripe, dynamicObjects.defect, ...dynamicObjects.defectRings,
+                dynamicObjects.rays, dynamicObjects.labels, dynamicObjects.lowerGlass
+            ];
+            for (const obj of toRemove) {
+                if (obj) {
+                    scene.remove(obj);
+                    if (obj.traverse) {
+                        obj.traverse(child => {
+                            if (child.isMesh) {
+                                child.geometry?.dispose();
+                                if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                                else child.material?.dispose();
+                            }
+                        });
+                    }
+                }
+            }
+            dynamicObjects.defectRings = [];
+            dynamicObjects = { upperGlass: null, paper: null, paperEdge: null, stripe: null, defect: null, defectRings: [], rays: null, labels: null, lowerGlass: null };
+        }
+
+        // ===== 构建场景 =====
+        function buildScene(d_mm, lambda_nm, scaleFactor,
+                            defX_pct, defZ_pct, defRad_pct, defHt_nm) {
+            clearDynamic();
+
+            const glassMat = new THREE.MeshPhysicalMaterial({
+                color: 0xc8d8f0, metalness: 0.0, roughness: 0.05,
+                transparent: true, opacity: 0.28, envMapIntensity: 0.4,
+                clearcoat: 0.2, clearcoatRoughness: 0.3, side: THREE.DoubleSide, depthWrite: false
+            });
+            const glassMatTop = glassMat.clone();
+            glassMatTop.opacity = 0.25;
+            const paperMat = new THREE.MeshPhysicalMaterial({
+                color: 0xf5e6c8, roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide
+            });
+
+            // 下玻璃板
+            const lowerGeo = new THREE.BoxGeometry(L, H, W);
+            const lowerMesh = new THREE.Mesh(lowerGeo, glassMat);
+            lowerMesh.position.set(0, H/2, 0);
+            lowerMesh.castShadow = true; lowerMesh.receiveShadow = true;
+            scene.add(lowerMesh);
+            dynamicObjects.lowerGlass = lowerMesh;
+
+            // ---- 上玻璃板组 (包含条纹) ----
+            const d_display = d_mm * scaleFactor / 10;
+            const theta = Math.atan(d_display / L);
+            const upperGroup = new THREE.Group();
+            upperGroup.position.set(-L/2, H, 0);
+            upperGroup.rotation.z = theta;
+
+            const upperGeo = new THREE.BoxGeometry(L, H, W);
+            const upperMesh = new THREE.Mesh(upperGeo, glassMatTop);
+            upperMesh.position.set(L/2, H/2, 0);
+            upperMesh.castShadow = true; upperMesh.receiveShadow = true;
+            upperGroup.add(upperMesh);
+            const edges = new THREE.EdgesGeometry(upperGeo);
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.2 });
+            const edgeLine = new THREE.LineSegments(edges, edgeMat);
+            edgeLine.position.copy(upperMesh.position);
+            upperGroup.add(edgeLine);
+
+            // 干涉条纹
+            const stripeTexture = generateStripeTexture(d_mm, lambda_nm,
+                defX_pct, defZ_pct, defRad_pct, defHt_nm);
+            const stripeMat = new THREE.MeshBasicMaterial({
+                map: stripeTexture,
+                transparent: true,
+                opacity: 0.92,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+            });
+            const stripeGeo = new THREE.PlaneGeometry(L * 0.98, W * 0.96);
+            const stripePlane = new THREE.Mesh(stripeGeo, stripeMat);
+            stripePlane.position.set(L/2, -0.005, 0);
+            stripePlane.rotation.x = -Math.PI / 2;
+            upperGroup.add(stripePlane);
+            scene.add(upperGroup);
+            dynamicObjects.upperGlass = upperGroup;
+            dynamicObjects.stripe = stripePlane;
+
+            // ---- 纸片 ----
+            const paperW = 1.2;
+            const paperH = d_display;
+            const paperD = W + 0.4;
+            const paperGeo = new THREE.BoxGeometry(paperW, paperH, paperD);
+            const paperMesh = new THREE.Mesh(paperGeo, paperMat);
+            paperMesh.position.set(L/2 + paperW/2 - 0.1, H + paperH/2, 0);
+            paperMesh.castShadow = true; paperMesh.receiveShadow = true;
+            scene.add(paperMesh);
+            dynamicObjects.paper = paperMesh;
+            const paperEdges = new THREE.EdgesGeometry(paperGeo);
+            const paperEdgeMat = new THREE.LineBasicMaterial({ color: 0xc0a88a, transparent: true, opacity: 0.3 });
+            const paperEdgeLine = new THREE.LineSegments(paperEdges, paperEdgeMat);
+            paperEdgeLine.position.copy(paperMesh.position);
+            scene.add(paperEdgeLine);
+            dynamicObjects.paperEdge = paperEdgeLine;
+
+            // ---- 3D 缺陷模型 (同步物理参数，并乘以夸张倍数) ----
+            const htPhys = defHt_nm / 1e6; // mm
+            const radPhys = (defRad_pct / 100) * (W * 10); // mm
+            if (Math.abs(htPhys) > 1e-6 && defRad_pct > 0.5) {
+                const xPhys = (defX_pct / 100) * (L * 10) - (L * 10) / 2;
+                const zPhys = (defZ_pct / 100) * (W * 10) - (W * 10) / 2;
+                const xScene = xPhys / 10;
+                const zScene = zPhys / 10;
+                const radScene = radPhys / 10;
+                const htScene = htPhys * scaleFactor / 10;
+
+                const sign = (htPhys >= 0) ? 1 : -1;
+                const absHt = Math.abs(htScene);
+                const defGeo = new THREE.SphereGeometry(radScene, 20, 20);
+                const defMat = new THREE.MeshPhysicalMaterial({
+                    color: (htPhys >= 0) ? 0x3b82f6 : 0xf59e0b,
+                    transparent: true,
+                    opacity: 0.55,
+                    roughness: 0.3,
+                    metalness: 0.1,
+                    emissive: (htPhys >= 0) ? 0x1a56db : 0xd97706,
+                    emissiveIntensity: 0.15,
+                    side: THREE.DoubleSide
+                });
+                const defectMesh = new THREE.Mesh(defGeo, defMat);
+                defectMesh.scale.set(1, 0.3, 1);
+                const yOffset = sign * absHt * 0.3;
+                defectMesh.position.set(xScene, H + yOffset, zScene);
+                defectMesh.castShadow = true;
+                defectMesh.receiveShadow = true;
+                scene.add(defectMesh);
+                dynamicObjects.defect = defectMesh;
+
+                // 指示环
+                const ringGeo = new THREE.RingGeometry(radScene * 0.5, radScene * 0.7, 24);
+                const ringMat = new THREE.MeshBasicMaterial({
+                    color: (htPhys >= 0) ? 0x3b82f6 : 0xf59e0b,
+                    transparent: true,
+                    opacity: 0.2,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.rotation.x = -Math.PI / 2;
+                ring.position.set(xScene, H + 0.001, zScene);
+                scene.add(ring);
+                dynamicObjects.defectRings.push(ring);
+            }
+
+            // 平行光线
+            const rayGroup = new THREE.Group();
+            const rayMat = new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.15 });
+            const rayMatBright = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.25 });
+            const nRays = 18;
+            for (let i = 0; i < nRays; i++) {
+                const xPos = -L/2 + (i+0.5) * (L/nRays);
+                const zPos = -W/2 + (i%6+0.5) * (W/6);
+                const pts = [new THREE.Vector3(xPos, 6.5, zPos), new THREE.Vector3(xPos, H+0.5, zPos)];
+                const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                const mat = (i%3===0) ? rayMatBright : rayMat;
+                const line = new THREE.Line(geo, mat);
+                rayGroup.add(line);
+            }
+            const lightDiscMat = new THREE.MeshBasicMaterial({
+                color: 0xf0f4ff, transparent: true, opacity: 0.08,
+                side: THREE.DoubleSide, depthWrite: false
+            });
+            const discGeo = new THREE.PlaneGeometry(L*1.1, W*1.1);
+            const disc = new THREE.Mesh(discGeo, lightDiscMat);
+            disc.rotation.x = -Math.PI / 2;
+            disc.position.set(0, 6.2, 0);
+            rayGroup.add(disc);
+            scene.add(rayGroup);
+            dynamicObjects.rays = rayGroup;
+
+            // 文字标签
+            const labelGroup = new THREE.Group();
+            function makeLabel(text, pos, color = '#1e293b', fontSize = 0.5) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 256; canvas.height = 80;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.font = `600 ${fontSize*80}px "Segoe UI", sans-serif`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(255,255,255,0.9)'; ctx.shadowBlur = 8;
+                ctx.fillStyle = color;
+                ctx.fillText(text, canvas.width/2, canvas.height/2);
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.needsUpdate = true;
+                const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, sizeAttenuation: true });
+                const sprite = new THREE.Sprite(mat);
+                sprite.position.copy(pos);
+                sprite.scale.set(2.4, 0.8, 1);
+                return sprite;
+            }
+            labelGroup.add(makeLabel('平行光', new THREE.Vector3(0, 7.8, 2.8), '#475569', 0.45));
+            labelGroup.add(makeLabel('上玻璃板', new THREE.Vector3(-3.2, 2.6, 3.0), '#3b82f6', 0.4));
+            labelGroup.add(makeLabel('下玻璃板', new THREE.Vector3(-3.2, 0.4, 3.0), '#3b82f6', 0.4));
+            labelGroup.add(makeLabel('纸片', new THREE.Vector3(5.8, 1.2, 3.2), '#b45309', 0.4));
+            labelGroup.add(makeLabel('干涉条纹', new THREE.Vector3(0, -0.6, 3.8), '#16a34a', 0.4));
+            if (Math.abs(defHt_nm) > 10) {
+                const labelText = (defHt_nm > 0) ? '▲ 突起' : '▼ 凹陷';
+                const color = (defHt_nm > 0) ? '#2563eb' : '#d97706';
+                labelGroup.add(makeLabel(labelText, new THREE.Vector3(0, 1.6, 2.6), color, 0.35));
+            }
+            scene.add(labelGroup);
+            dynamicObjects.labels = labelGroup;
+
+            // 更新公式显示
+            const theta_real = d_mm / (L * 10);
+            const dx_mm = (lambda_nm / 1e6) / (2 * AIR_N * theta_real);
+            dxDisplay.textContent = dx_mm.toFixed(4);
+            dCalcDisplay.textContent = d_mm.toFixed(3);
+            const rgb = wavelengthToRGB(lambda_nm);
+            const hex = `#${[rgb.r, rgb.g, rgb.b].map(c => Math.round(c*255).toString(16).padStart(2,'0')).join('')}`;
+            colorPreview.style.background = hex;
+            lambdaColorName.textContent = colorName(lambda_nm);
+            dVal.textContent = d_mm.toFixed(3) + ' mm';
+            lambdaVal.textContent = lambda_nm + ' nm';
+            scaleVal.textContent = scaleFactor;
+            defXVal.textContent = defX_pct + ' %';
+            defZVal.textContent = defZ_pct + ' %';
+            defRadVal.textContent = defRad_pct + ' %';
+            defHtVal.textContent = defHt_nm + ' nm';
+        }
+
+        // ===== 更新场景 =====
+        function updateScene() {
+            const d = parseFloat(dSlider.value);
+            const lambda = parseFloat(lambdaSlider.value);
+            const scale = parseFloat(scaleSlider.value);
+            const defX = parseFloat(defXSlider.value);
+            const defZ = parseFloat(defZSlider.value);
+            const defRad = parseFloat(defRadSlider.value);
+            const defHt = parseFloat(defHtSlider.value);
+            buildScene(d, lambda, scale, defX, defZ, defRad, defHt);
+        }
+
+        // ===== 事件绑定 =====
+        dSlider.addEventListener('input', updateScene);
+        lambdaSlider.addEventListener('input', updateScene);
+        scaleSlider.addEventListener('input', updateScene);
+        defXSlider.addEventListener('input', updateScene);
+        defZSlider.addEventListener('input', updateScene);
+        defRadSlider.addEventListener('input', updateScene);
+        defHtSlider.addEventListener('input', updateScene);
+
+        // ===== 自适应 =====
+        function resizeRenderer() {
+            const w = container.clientWidth, h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+        window.addEventListener('resize', resizeRenderer);
+
+        // ===== 动画循环 =====
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // ===== 初次构建 =====
+        buildScene(0.05, 550, 300, 50, 50, 10, 300);
+        // 同步滑块
+        dSlider.value = 0.05;
+        lambdaSlider.value = 550;
+        scaleSlider.value = 300;
+        defXSlider.value = 50;
+        defZSlider.value = 50;
+        defRadSlider.value = 10;
+        defHtSlider.value = 300;
+
+        animate();
+        console.log('✅ 劈尖干涉模拟已启动 (缺陷下拉菜单已移除，滑块保留)');
+    </script>
+</body>
+</html>
