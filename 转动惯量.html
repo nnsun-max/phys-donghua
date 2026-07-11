@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>转动惯量影响参数 - 双模块演示</title>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --panel-bg: #f8f9fa;
+            --text: #2c3e50;
+            --text-secondary: #5a6c7d;
+            --border: #e0e4e8;
+            --accent1: #4A90D9;
+            --accent2: #E8833A;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            --radius: 13px;
+            --transition: 0.22s ease;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: #fff; display: flex; height:100vh; width:100vw; overflow: hidden;
+            user-select: none; -webkit-user-select: none;
+        }
+        .panel {
+            width: 370px; min-width: 370px; background: var(--panel-bg);
+            border-right: 1px solid var(--border); display: flex; flex-direction: column;
+            padding: 16px 14px; gap: 12px; overflow-y: auto; z-index:10;
+            box-shadow: var(--shadow); scrollbar-width: thin; scrollbar-color: #c0c7cf transparent;
+        }
+        .tab-row { display: flex; gap:0; background: #e9ecf0; border-radius:10px; padding:4px; flex-shrink:0; }
+        .tab-btn {
+            flex:1; padding:10px 8px; border:none; border-radius:8px; font-size:0.82rem; font-weight:700;
+            cursor:pointer; background:transparent; color:#6b7d8e; transition:0.22s; letter-spacing:0.03em;
+        }
+        .tab-btn.active { background:#fff; color:#1f2a36; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+        .module-content { display:none; flex-direction:column; gap:12px; }
+        .module-content.active { display:flex; }
+        .module-card { background:#fff; border-radius:12px; padding:16px 14px; border:1px solid var(--border); }
+        .module-title { font-size:0.9rem; font-weight:700; margin-bottom:12px; border-left:4px solid #4A90D9; padding-left:10px; }
+        .module-title.rod-title { border-left-color:#E8833A; }
+        .param-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; gap:8px; }
+        .param-row label { font-size:0.76rem; font-weight:600; min-width:65px; }
+        .param-row input[type=range] { flex:1; height:6px; border-radius:3px; background:#dde3ea; -webkit-appearance:none; cursor:pointer; }
+        .param-row input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:#fff; border:2px solid #b0bcc8; }
+        .val { font-size:0.76rem; font-weight:600; color:var(--text-secondary); min-width:38px; text-align:right; font-family:monospace; }
+        .type-badge { display:inline-block; padding:2px 10px; border-radius:12px; font-size:0.72rem; font-weight:700; margin-left:6px; }
+        .badge-solid { background:#e3ecf6; color:#2a5c9a; }
+        .badge-hollow { background:#fde9e6; color:#b0442a; }
+        .info-box { font-size:0.73rem; color:#4a5b6a; background:#f3f5f7; padding:9px 10px; border-radius:8px; line-height:1.55; }
+        .info-box span { font-weight:700; color:#1f2a36; font-family:monospace; }
+        .explanation-box {
+            font-size: 0.73rem; color: #2c3e50; background: #fef9f0;
+            border-left: 4px solid #E8833A; padding: 10px 12px; border-radius: 8px;
+            line-height: 1.6; margin-top: 8px;
+        }
+        .explanation-box.rod-explanation {
+            border-left-color: #c0392b; background: #fef5f5;
+        }
+        .explanation-box strong { color: #c0392b; }
+        .btn-row { display:flex; gap:8px; margin-top:4px; }
+        .btn { flex:1; padding:10px 12px; border:none; border-radius:8px; font-size:0.8rem; font-weight:700; cursor:pointer; transition:0.2s; }
+        .btn-primary { background:#3b6fb6; color:#fff; }
+        .btn-secondary { background:#fff; color:#3b6fb6; border:2px solid #d0d8e2; }
+        .btn-rod-primary { background:#c0392b; color:#fff; }
+        .btn-rod-secondary { color:#c0392b; border-color:#e8c8c4; }
+        .time-result { text-align:center; font-weight:700; font-size:0.82rem; }
+        .canvas-container { flex:1; position:relative; background:#fff; min-width:400px; }
+        .scene-label { position:absolute; top:12px; left:16px; font-size:0.68rem; font-weight:700; color:#8899aa; background:rgba(255,255,255,0.75); padding:4px 10px; border-radius:4px; z-index:5; }
+        .legend-overlay { position:absolute; top:12px; right:20px; display:flex; flex-direction:column; gap:6px; z-index:5; }
+        .legend-item { display:flex; align-items:center; gap:8px; font-size:0.7rem; font-weight:600; color:#3a4a5a; background:rgba(255,255,255,0.8); padding:5px 10px; border-radius:16px; }
+        .legend-dot { width:10px; height:10px; border-radius:50%; }
+    </style>
+</head>
+<body>
+<div class="panel">
+    <div class="tab-row">
+        <button class="tab-btn active" data-tab="slope">📐 质量分布</button>
+        <button class="tab-btn" data-tab="rod">⚙️ 转轴位置</button>
+    </div>
+    <div class="module-content active" id="moduleSlope">
+        <div class="module-card">
+            <div class="module-title">质量分布对转动惯量的影响</div>
+            <div class="info-box">
+                两个质量均为 <span id="massVal">1.00</span> kg 的圆柱，半径相同<br>
+                <span class="highlight-red">转动定律：</span> <span>mg sinθ - f = ma</span>，<span>f R = I α</span>，<span>a = αR</span><br>
+                <span>⇒ a = g sinθ / (1 + I/mR²)</span><br>
+                <span style="color:#E8833A;">转动惯量越大，加速度越小，滚落越慢！</span>
+            </div>
+            <div class="param-row">
+                <label>共同半径 R</label>
+                <input type="range" id="radiusCommon" min="0.20" max="0.70" step="0.01" value="0.45">
+                <span class="val" id="valRadius">0.45</span>
+            </div>
+            <div class="param-row" style="justify-content: space-around; margin-bottom: 12px;">
+                <span style="font-weight:700; color:#2a5c9a;">🔵 圆柱1：<span class="type-badge badge-solid">实心</span></span>
+                <span style="font-weight:700; color:#b0442a;">🟠 圆柱2：<span class="type-badge badge-hollow">空心</span></span>
+            </div>
+            <div class="info-box">
+                <span>I₁ = ½ m R²</span> = <span id="i1Text">0.101</span> kg·m²<br>
+                <span>I₂ = m R²</span> = <span id="i2Text">0.203</span> kg·m²<br>
+                <span>a₁ = ⅔ g sinθ</span> = <span id="a1Text">2.77</span> m/s² &nbsp;|&nbsp;
+                <span>a₂ = ½ g sinθ</span> = <span id="a2Text">2.07</span> m/s²
+            </div>
+            <div class="time-result">到达时间：<span id="time1">圆柱1: --</span> &nbsp;|&nbsp; <span id="time2">圆柱2: --</span></div>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="btnSlopeRelease">▶ 释放</button>
+                <button class="btn btn-secondary" id="btnSlopeReset">↺ 重置</button>
+            </div>
+            <div class="explanation-box">
+                <strong>💡 为什么空心圆柱滚得慢？</strong><br>
+                质量相同、半径相同的实心圆柱和空心圆柱，<strong>空心圆柱质量分布靠外</strong>，转动惯量更大。转动动能占比增加，分给质心的平动动能减少，因此质心速度变小，下滑变慢。
+            </div>
+        </div>
+    </div>
+    <div class="module-content" id="moduleRod">
+        <div class="module-card">
+            <div class="module-title rod-title">转轴对转动惯量的影响</div>
+            <div class="info-box">细杆质量 <span id="rodMassVal">2.00</span> kg，长度 <span>L = 2.00</span> m<br>转动惯量 <span>I = ¹⁄₁₂ M L² + M d²</span></div>
+            <div class="param-row"><label>转轴位置</label><input type="range" id="dAxis" min="0.00" max="2.00" step="0.01" value="1.00"><span class="val" id="valDAxis">1.00</span></div>
+            <div class="param-row"><label>初角速度 ω₀</label><input type="range" id="omega0" min="1.0" max="12.0" step="0.1" value="6.0"><span class="val" id="valOmega0">6.0</span></div>
+            <div class="param-row"><label>阻尼系数 b</label><input type="range" id="damping" min="0.1" max="2.5" step="0.1" value="0.8"><span class="val" id="valDamping">0.8</span></div>
+            <div class="info-box"><span id="irodText">I = 0.667</span> kg·m² &nbsp;|&nbsp; 距质心 <span id="distText">d = 0.00</span> m</div>
+            <div class="time-result">停止时间：<span id="stopTime">--</span> s</div>
+            <div class="btn-row">
+                <button class="btn btn-primary btn-rod-primary" id="btnRodRelease">▶ 释放</button>
+                <button class="btn btn-secondary btn-rod-secondary" id="btnRodReset">↺ 重置</button>
+            </div>
+            <!-- ★ 根据用户要求修改后的解释文字 ★ -->
+            <div class="explanation-box rod-explanation">
+                <strong>💡 为什么转轴在质心时停止更快？</strong><br>
+                根据<strong>平行轴定理</strong>：刚体绕任意轴的转动惯量 <span>I</span>，等于绕通过质心的平行轴的转动惯量 <span>I<sub>cm</sub></span> 加上刚体质量与两轴距离平方的乘积：<br>
+                <span>I = I<sub>cm</sub> + M d²</span><br>
+                其中 <span>d</span> 为转轴到质心的距离。对于细杆，<span>I<sub>cm</sub> = ¹⁄₁₂ M L²</span>。因此<strong>转轴离质心越远，转动惯量越大</strong>。<br>
+                <strong>转动动能</strong>：<span>E<sub>k</sub> = ½ I ω²</span>，初始角速度相同时，转动惯量越小，初始动能越少。<br>
+                阻尼力矩 <span>τ = -b ω</span>，角加速度 <span>α = τ / I = -b ω / I</span>，在阻尼系数相同、初始角速度一致的条件下，转动惯量越小，初始转动动能就少，角速度衰减越快，因此<strong>转轴在质心时刚体杆最快停止转动</strong>。
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="canvas-container" id="canvasContainer">
+    <div class="scene-label" id="sceneLabel">📐 质量分布 — 实心 vs 空心圆柱</div>
+    <div class="legend-overlay" id="legendSlope">
+        <div class="legend-item"><span class="legend-dot" style="background:#4A90D9;"></span>圆柱1(实心)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#E8833A;"></span>圆柱2(空心)</div>
+    </div>
+    <div class="legend-overlay" id="legendRod" style="display:none;">
+        <div class="legend-item"><span class="legend-dot" style="background:#E8833A;"></span>细杆</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#c0392b;"></span>转轴</div>
+    </div>
+</div>
+
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const container = document.getElementById('canvasContainer');
+const sceneLabel = document.getElementById('sceneLabel');
+const legendSlope = document.getElementById('legendSlope');
+const legendRod = document.getElementById('legendRod');
+const tabBtns = document.querySelectorAll('.tab-btn');
+const moduleSlope = document.getElementById('moduleSlope');
+const moduleRod = document.getElementById('moduleRod');
+let activeTab = 'slope';
+
+const sliderRadius = document.getElementById('radiusCommon');
+const valRadius = document.getElementById('valRadius');
+const i1Text = document.getElementById('i1Text'), i2Text = document.getElementById('i2Text');
+const a1Text = document.getElementById('a1Text'), a2Text = document.getElementById('a2Text');
+const time1Dom = document.getElementById('time1'), time2Dom = document.getElementById('time2');
+const btnSlopeRelease = document.getElementById('btnSlopeRelease');
+const btnSlopeReset = document.getElementById('btnSlopeReset');
+const massValDom = document.getElementById('massVal');
+
+const sliderDAxis = document.getElementById('dAxis');
+const sliderOmega0 = document.getElementById('omega0');
+const sliderDamping = document.getElementById('damping');
+const valDAxis = document.getElementById('valDAxis'), valOmega0 = document.getElementById('valOmega0'), valDamping = document.getElementById('valDamping');
+const irodText = document.getElementById('irodText'), distTextDom = document.getElementById('distText');
+const stopTimeDom = document.getElementById('stopTime');
+const btnRodRelease = document.getElementById('btnRodRelease'), btnRodReset = document.getElementById('btnRodReset');
+const rodMassValDom = document.getElementById('rodMassVal');
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+container.appendChild(renderer.domElement);
+
+// ------- 斜面场景 -------
+const sceneSlope = new THREE.Scene();
+sceneSlope.background = new THREE.Color('#f6f8fa');
+const cameraSlope = new THREE.PerspectiveCamera(42, container.clientWidth/container.clientHeight, 0.4, 22);
+cameraSlope.position.set(1.8, 4.0, 8.0); cameraSlope.lookAt(0, -0.2, 0);
+const controlsSlope = new OrbitControls(cameraSlope, renderer.domElement);
+controlsSlope.target.set(0, -0.2, 0); controlsSlope.enableDamping = true; controlsSlope.update();
+
+function addLightsSlope() {
+    sceneSlope.add(new THREE.AmbientLight('#dce6f0', 3.5));
+    sceneSlope.add(new THREE.HemisphereLight('#ffffff', '#c0ccd6', 1.5));
+    const dir = new THREE.DirectionalLight('#ffffff', 5.0);
+    dir.position.set(6,12,5); dir.castShadow = true;
+    dir.shadow.mapSize.width = 2048; dir.shadow.mapSize.height = 2048;
+    dir.shadow.camera.near = 0.5; dir.shadow.camera.far = 30;
+    dir.shadow.camera.left = -12; dir.shadow.camera.right = 12;
+    dir.shadow.camera.top = 8; dir.shadow.camera.bottom = -8;
+    sceneSlope.add(dir);
+}
+addLightsSlope();
+const groundSlope = new THREE.Mesh(new THREE.PlaneGeometry(20,20), new THREE.MeshStandardMaterial({color:'#eef0f3', roughness:0.65}));
+groundSlope.rotation.x = -Math.PI/2; groundSlope.position.y = -2.9; groundSlope.receiveShadow = true; sceneSlope.add(groundSlope);
+
+const SLOPE_ANGLE = THREE.MathUtils.degToRad(25), G = 9.81, MASS_CYL = 1.0, CYL_LEN = 1.5;
+const SLOPE_HALF = 4.0, INIT_X = -3.5, FINISH_X = 3.5, Z_SEP = 2.2;
+const K_SOLID = 0.5, K_HOLLOW = 1.0;
+
+function createSlopeGroup(worldZ) {
+    const group = new THREE.Group();
+    group.position.z = worldZ; group.rotation.z = -SLOPE_ANGLE;
+    const slopeGeo = new THREE.BoxGeometry(SLOPE_HALF*2+0.6, 0.15, 2.6);
+    const slopeMat = new THREE.MeshStandardMaterial({color:'#e4e8ed', roughness:0.4});
+    const slopeMesh = new THREE.Mesh(slopeGeo, slopeMat);
+    slopeMesh.position.y = -0.07; slopeMesh.castShadow = true; slopeMesh.receiveShadow = true;
+    group.add(slopeMesh);
+    const lipGeo = new THREE.BoxGeometry(0.22,0.42,2.6);
+    const lipMat = new THREE.MeshStandardMaterial({color:'#d2d8df', roughness:0.5});
+    const lipTop = new THREE.Mesh(lipGeo, lipMat); lipTop.position.set(-SLOPE_HALF-0.3,0.14,0); group.add(lipTop);
+    const lipBot = new THREE.Mesh(lipGeo, lipMat); lipBot.position.set(SLOPE_HALF+0.3,0.14,0); group.add(lipBot);
+    return group;
+}
+const slopeGroup1 = createSlopeGroup(-Z_SEP); slopeGroup1.name='slope1'; sceneSlope.add(slopeGroup1);
+const slopeGroup2 = createSlopeGroup(Z_SEP); slopeGroup2.name='slope2'; sceneSlope.add(slopeGroup2);
+
+function createSolidCylinder(radius, color) {
+    const axleGroup = new THREE.Group();
+    const cylGeo = new THREE.CylinderGeometry(1,1,CYL_LEN,52);
+    const cylMat = new THREE.MeshStandardMaterial({color, roughness:0.2, metalness:0.05});
+    const cylMesh = new THREE.Mesh(cylGeo, cylMat);
+    cylMesh.rotation.x = -Math.PI/2; cylMesh.scale.set(radius,1,radius);
+    cylMesh.castShadow = true; cylMesh.receiveShadow = true;
+    axleGroup.add(cylMesh);
+    const dotGeo = new THREE.CylinderGeometry(0.04,0.04,CYL_LEN+0.08,12);
+    const dot = new THREE.Mesh(dotGeo, new THREE.MeshStandardMaterial({color:'#1a1a1a', roughness:0.35}));
+    dot.rotation.x = -Math.PI/2; axleGroup.add(dot);
+    return axleGroup;
+}
+
+function createHollowCylinder(radius, outerColor) {
+    const axleGroup = new THREE.Group();
+    const innerRadius = radius * 0.5;
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, radius, 0, Math.PI*2, false);
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, innerRadius, 0, Math.PI*2, true);
+    shape.holes.push(hole);
+    const geometry = new THREE.ExtrudeGeometry(shape, {steps:1, depth:CYL_LEN, bevelEnabled:false});
+    geometry.translate(0,0,-CYL_LEN/2);
+    const material = new THREE.MeshStandardMaterial({color:outerColor, roughness:0.2, metalness:0.05, side:THREE.DoubleSide});
+    const tubeMesh = new THREE.Mesh(geometry, material);
+    tubeMesh.castShadow = true; tubeMesh.receiveShadow = true;
+    axleGroup.add(tubeMesh);
+    const dotGeo = new THREE.CylinderGeometry(0.04,0.04,CYL_LEN+0.08,12);
+    const dot = new THREE.Mesh(dotGeo, new THREE.MeshStandardMaterial({color:'#1a1a1a', roughness:0.35}));
+    dot.rotation.x = -Math.PI/2; axleGroup.add(dot);
+    return axleGroup;
+}
+
+let axleGroup1, axleGroup2;
+function rebuildCylinders() {
+    if(axleGroup1){ disposeGroup(axleGroup1); slopeGroup1.remove(axleGroup1); }
+    if(axleGroup2){ disposeGroup(axleGroup2); slopeGroup2.remove(axleGroup2); }
+    const r = parseFloat(sliderRadius.value);
+    axleGroup1 = createSolidCylinder(r, '#4A90D9');
+    axleGroup2 = createHollowCylinder(r, '#E8833A');
+    axleGroup1.position.set(INIT_X, r, 0); axleGroup2.position.set(INIT_X, r, 0);
+    slopeGroup1.add(axleGroup1); slopeGroup2.add(axleGroup2);
+}
+function disposeGroup(group) {
+    group.traverse(c=>{ if(c.geometry)c.geometry.dispose(); if(c.material) Array.isArray(c.material)?c.material.forEach(m=>m.dispose()):c.material.dispose(); });
+}
+
+const slopeState = { running:false, finished:false, simTime:0, x1:INIT_X, v1:0, phi1:0, x2:INIT_X, v2:0, phi2:0, finish1:false, time1:null, finish2:false, time2:null };
+function resetSlopeState() {
+    slopeState.running=false; slopeState.finished=false; slopeState.simTime=0;
+    slopeState.x1=INIT_X; slopeState.v1=0; slopeState.phi1=0;
+    slopeState.x2=INIT_X; slopeState.v2=0; slopeState.phi2=0;
+    slopeState.finish1=false; slopeState.time1=null; slopeState.finish2=false; slopeState.time2=null;
+    const r = parseFloat(sliderRadius.value);
+    if(axleGroup1){ axleGroup1.position.set(INIT_X,r,0); axleGroup1.rotation.z=0; }
+    if(axleGroup2){ axleGroup2.position.set(INIT_X,r,0); axleGroup2.rotation.z=0; }
+    time1Dom.textContent='圆柱1: --'; time2Dom.textContent='圆柱2: --';
+}
+function updateSlopeUI() {
+    const r = parseFloat(sliderRadius.value); valRadius.textContent = r.toFixed(2);
+    const I1 = K_SOLID*MASS_CYL*r*r, I2 = K_HOLLOW*MASS_CYL*r*r;
+    const a1 = G*Math.sin(SLOPE_ANGLE)/(1+K_SOLID), a2 = G*Math.sin(SLOPE_ANGLE)/(1+K_HOLLOW);
+    i1Text.textContent = I1.toFixed(3); i2Text.textContent = I2.toFixed(3);
+    a1Text.textContent = a1.toFixed(2); a2Text.textContent = a2.toFixed(2);
+    massValDom.textContent = MASS_CYL.toFixed(2);
+}
+
+// ------- 转轴场景 (无白色圆盘) -------
+const sceneRod = new THREE.Scene(); sceneRod.background = new THREE.Color('#fafbfc');
+const cameraRod = new THREE.PerspectiveCamera(44, container.clientWidth/container.clientHeight, 0.3, 16);
+cameraRod.position.set(3.0,5.2,4.5); cameraRod.lookAt(0,0,0);
+const controlsRod = new OrbitControls(cameraRod, renderer.domElement);
+controlsRod.target.set(0,0,0); controlsRod.enableDamping = true; controlsRod.enabled = false; controlsRod.update();
+
+function addLightsRod() {
+    sceneRod.add(new THREE.AmbientLight('#e4ecf4', 3.8));
+    sceneRod.add(new THREE.HemisphereLight('#ffffff','#c8d4de',1.6));
+    const dir = new THREE.DirectionalLight('#ffffff',5.5); dir.position.set(5,9,6); dir.castShadow=true;
+    dir.shadow.mapSize.width=1024; dir.shadow.mapSize.height=1024; sceneRod.add(dir);
+}
+addLightsRod();
+const groundRod = new THREE.Mesh(new THREE.PlaneGeometry(10,10), new THREE.MeshStandardMaterial({color:'#f2f4f6', roughness:0.6}));
+groundRod.rotation.x=-Math.PI/2; groundRod.position.y=-2.2; groundRod.receiveShadow = true; sceneRod.add(groundRod);
+
+const ROD_MASS=2.0, ROD_LEN=2.0;
+const rodGroup = new THREE.Group(); sceneRod.add(rodGroup);
+const rodMesh = new THREE.Mesh(new THREE.BoxGeometry(ROD_LEN,0.09,0.09), new THREE.MeshStandardMaterial({color:'#E8833A', roughness:0.22}));
+rodMesh.castShadow=true; rodGroup.add(rodMesh);
+const axisPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.55,24), new THREE.MeshStandardMaterial({color:'#444', roughness:0.3}));
+axisPillar.position.set(0,0,0); rodGroup.add(axisPillar);
+const ball = new THREE.Mesh(new THREE.SphereGeometry(0.11,28,28), new THREE.MeshStandardMaterial({color:'#c0392b', roughness:0.18, emissive:'#300'}));
+ball.position.set(0,0.28,0); rodGroup.add(ball);
+const cmBall = new THREE.Mesh(new THREE.SphereGeometry(0.06,16,16), new THREE.MeshStandardMaterial({color:'#2ecc71', roughness:0.2, emissive:'#030'}));
+cmBall.position.set(0,0,0); rodGroup.add(cmBall);
+
+function updateRodVisuals(dAxis) {
+    const offset = dAxis - ROD_LEN/2;
+    rodMesh.position.x = offset; cmBall.position.x = offset;
+}
+const rodState = { running:false, stopped:false, angle:0, omega:0, time:0, stopTime:null };
+function resetRodState() {
+    rodState.running=false; rodState.stopped=false; rodState.angle=0; rodState.omega=0; rodState.time=0; rodState.stopTime=null;
+    rodGroup.rotation.y=0; stopTimeDom.textContent='--';
+}
+function updateRodUI() {
+    const d = parseFloat(sliderDAxis.value), omega0=parseFloat(sliderOmega0.value), b=parseFloat(sliderDamping.value);
+    valDAxis.textContent=d.toFixed(2); valOmega0.textContent=omega0.toFixed(1); valDamping.textContent=b.toFixed(1);
+    const dist = d - ROD_LEN/2;
+    const I = (1/12)*ROD_MASS*ROD_LEN*ROD_LEN + ROD_MASS*dist*dist;
+    irodText.textContent = `I = ${I.toFixed(3)}`; distTextDom.textContent = `d = ${dist.toFixed(2)}`;
+    rodMassValDom.textContent = ROD_MASS.toFixed(2);
+    updateRodVisuals(d);
+}
+
+function switchTab(tab) {
+    if(activeTab===tab) return;
+    activeTab=tab;
+    tabBtns.forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+    moduleSlope.classList.toggle('active', tab==='slope');
+    moduleRod.classList.toggle('active', tab==='rod');
+    if(tab==='slope') {
+        sceneLabel.textContent='📐 质量分布 — 实心 vs 空心圆柱';
+        legendSlope.style.display='flex'; legendRod.style.display='none';
+        controlsSlope.enabled=true; controlsRod.enabled=false;
+    } else {
+        sceneLabel.textContent='⚙️ 转轴位置 — 阻尼旋转实验';
+        legendSlope.style.display='none'; legendRod.style.display='flex';
+        controlsSlope.enabled=false; controlsRod.enabled=true;
+    }
+}
+tabBtns.forEach(b=>b.addEventListener('click', ()=>switchTab(b.dataset.tab)));
+
+sliderRadius.addEventListener('input', ()=>{ updateSlopeUI(); rebuildCylinders(); resetSlopeState(); });
+btnSlopeRelease.addEventListener('click', ()=>{
+    if(slopeState.running) return;
+    resetSlopeState(); slopeState.running=true; slopeState.finished=false;
+    time1Dom.textContent='圆柱1: ...'; time2Dom.textContent='圆柱2: ...';
+});
+btnSlopeReset.addEventListener('click', ()=>{ updateSlopeUI(); rebuildCylinders(); resetSlopeState(); });
+sliderDAxis.addEventListener('input', ()=>{ updateRodUI(); resetRodState(); });
+sliderOmega0.addEventListener('input', ()=>{ updateRodUI(); resetRodState(); });
+sliderDamping.addEventListener('input', ()=>{ updateRodUI(); resetRodState(); });
+btnRodRelease.addEventListener('click', ()=>{
+    if(rodState.running) return;
+    resetRodState(); rodState.running=true; rodState.stopped=false;
+    rodState.omega = parseFloat(sliderOmega0.value); rodState.angle=0; rodState.time=0;
+    rodGroup.rotation.y=0; stopTimeDom.textContent='...';
+});
+btnRodReset.addEventListener('click', ()=>{ updateRodUI(); resetRodState(); });
+
+window.addEventListener('resize', ()=>{
+    const w=container.clientWidth, h=container.clientHeight;
+    renderer.setSize(w,h);
+    cameraSlope.aspect = w/Math.max(h,1); cameraSlope.updateProjectionMatrix();
+    cameraRod.aspect = w/Math.max(h,1); cameraRod.updateProjectionMatrix();
+});
+window.addEventListener('keydown', e=>{
+    switch(e.key.toLowerCase()){
+        case '1': e.preventDefault(); switchTab('slope'); break;
+        case '2': e.preventDefault(); switchTab('rod'); break;
+        case ' ': e.preventDefault(); if(activeTab==='slope') btnSlopeRelease.click(); else btnRodRelease.click(); break;
+        case 'r': if(!e.ctrlKey){ e.preventDefault(); if(activeTab==='slope') btnSlopeReset.click(); else btnRodReset.click(); } break;
+    }
+});
+
+const clock = new THREE.Clock();
+function animate() {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.06);
+    if(slopeState.running && !slopeState.finished) {
+        slopeState.simTime += dt;
+        const a1 = G*Math.sin(SLOPE_ANGLE)/(1+K_SOLID), a2 = G*Math.sin(SLOPE_ANGLE)/(1+K_HOLLOW);
+        const r = parseFloat(sliderRadius.value);
+        if(!slopeState.finish1) {
+            slopeState.v1 += a1*dt; slopeState.x1 += slopeState.v1*dt; slopeState.phi1 += (slopeState.v1/r)*dt;
+            if(axleGroup1){ axleGroup1.position.x=slopeState.x1; axleGroup1.rotation.z=slopeState.phi1; }
+            if(slopeState.x1 >= FINISH_X){ slopeState.finish1=true; slopeState.time1=slopeState.simTime; time1Dom.textContent='圆柱1: '+slopeState.time1.toFixed(2)+' s'; }
+        }
+        if(!slopeState.finish2) {
+            slopeState.v2 += a2*dt; slopeState.x2 += slopeState.v2*dt; slopeState.phi2 += (slopeState.v2/r)*dt;
+            if(axleGroup2){ axleGroup2.position.x=slopeState.x2; axleGroup2.rotation.z=slopeState.phi2; }
+            if(slopeState.x2 >= FINISH_X){ slopeState.finish2=true; slopeState.time2=slopeState.simTime; time2Dom.textContent='圆柱2: '+slopeState.time2.toFixed(2)+' s'; }
+        }
+        if(slopeState.finish1 && slopeState.finish2) { slopeState.finished=true; slopeState.running=false; }
+    }
+    if(rodState.running && !rodState.stopped) {
+        const d = parseFloat(sliderDAxis.value), b = parseFloat(sliderDamping.value);
+        const dist = d - ROD_LEN/2;
+        const I = (1/12)*ROD_MASS*ROD_LEN*ROD_LEN + ROD_MASS*dist*dist;
+        const alpha = -b * rodState.omega / I;
+        rodState.omega += alpha*dt; rodState.angle += rodState.omega*dt; rodState.time += dt;
+        rodGroup.rotation.y = rodState.angle;
+        if(Math.abs(rodState.omega) < 0.001) { rodState.stopped=true; rodState.running=false; rodState.stopTime=rodState.time; stopTimeDom.textContent=rodState.stopTime.toFixed(2)+' s'; }
+    }
+    if(activeTab==='slope') { controlsSlope.update(); renderer.render(sceneSlope, cameraSlope); }
+    else { controlsRod.update(); renderer.render(sceneRod, cameraRod); }
+}
+
+updateSlopeUI(); rebuildCylinders(); resetSlopeState();
+updateRodUI(); resetRodState();
+switchTab('slope');
+animate();
+</script>
+</body>
+</html>
