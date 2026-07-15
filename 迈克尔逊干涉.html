@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>迈克尔逊干涉仪 · 3D 仿真</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:#ffffff; color:#1e293b; overflow:hidden; height:100vh; font-family:'Segoe UI',sans-serif; user-select:none; font-size:18px; }
+        .header { display:flex; align-items:center; justify-content:space-between; padding:8px 28px; background:rgba(255,255,255,0.95); border-bottom:1px solid rgba(0,0,0,0.08); height:64px; }
+        .header h1 { font-size:24px; font-weight:700; background:linear-gradient(135deg,#dc2626,#f59e0b); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .tabs { display:flex; gap:4px; background:rgba(0,0,0,0.05); border-radius:10px; padding:3px; }
+        .tab-btn { padding:6px 22px; border:none; border-radius:8px; background:transparent; color:#475569; font-size:17px; font-weight:500; cursor:pointer; }
+        .tab-btn.active { background:rgba(220,38,38,0.12); color:#dc2626; }
+        .header-right { display:flex; align-items:center; gap:14px; color:#64748b; font-size:16px; }
+        .main { display:flex; height:calc(100vh - 64px); }
+        .panel { width:340px; min-width:340px; background:rgba(255,255,255,0.95); border-right:1px solid rgba(0,0,0,0.06); padding:10px 14px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+        .panel-section { background:rgba(0,0,0,0.02); border-radius:8px; padding:8px 14px; border:1px solid rgba(0,0,0,0.06); }
+        .panel-section-title { font-size:16px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px; }
+        .param-group { display:flex; flex-direction:column; gap:1px; margin-bottom:4px; }
+        .param-label { display:flex; justify-content:space-between; font-size:17px; color:#334155; }
+        .param-label span:last-child { color:#dc2626; font-weight:600; font-family:'JetBrains Mono',monospace; font-size:16px; }
+        input[type="range"] { -webkit-appearance:none; width:100%; height:4px; background:rgba(0,0,0,0.10); outline:none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:linear-gradient(135deg,#dc2626,#f59e0b); cursor:pointer; border:2px solid white; }
+        .checkbox-group { display:flex; align-items:center; gap:6px; margin-top:2px; }
+        .checkbox-group input[type="checkbox"] { width:18px; height:18px; }
+        .checkbox-group label { font-size:17px; color:#334155; cursor:pointer; }
+        .pattern-area { flex:1; min-height:180px; background:#ffffff; border-radius:10px; border:1px solid rgba(0,0,0,0.08); overflow:hidden; aspect-ratio:1/1; width:100%; margin-top:4px; }
+        .pattern-area canvas { width:100%; height:100%; display:block; }
+        .pattern-label { font-size:16px; color:#64748b; text-align:center; padding:2px 0; }
+        .info-line { font-size:16px; color:#94a3b8; text-align:center; border-top:1px solid rgba(0,0,0,0.06); padding-top:4px; }
+        .scene-container { flex:1; background:#ffffff; overflow:hidden; position:relative; }
+        .scene-overlay-label { position:absolute; bottom:16px; left:50%; transform:translateX(-50%); font-size:14px; color:rgba(0,0,0,0.2); background:rgba(255,255,255,0.6); padding:2px 16px; border-radius:20px; pointer-events:none; }
+        .info-text { font-size:15px; color:#475569; line-height:1.6; padding:8px 10px; margin-top:8px; background:rgba(0,0,0,0.02); border-radius:6px; border-left:3px solid #dc2626; }
+        .info-text sub { font-size:0.9em; }
+        .info-text sup { font-size:0.9em; }
+        @media (max-width:1100px) { .panel { width:280px; min-width:280px; } }
+        @media (max-width:768px) { .panel { width:220px; min-width:220px; } .header h1 { font-size:20px; } .tab-btn { padding:4px 12px; font-size:15px; } }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航和左侧面板 -->
+    <header class="header">
+        <h1>⚡ 迈克尔逊干涉仪 · 3D 仿真</h1>
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="nonlocal">🌐 非定域干涉</button>
+            <button class="tab-btn" data-tab="local">🔬 定域干涉</button>
+        </div>
+        <div class="header-right">
+            <span class="badge" id="modeBadge">双叶双曲面 · He-Ne</span>
+            <span style="font-size:14px;color:#94a3b8;">拖拽旋转 · 滚轮缩放</span>
+        </div>
+    </header>
+    <div class="main">
+        <div class="panel" id="panelMain">
+            <div class="panel-scroll" id="panelScroll">
+                <!-- 非定域参数 -->
+                <div id="panelNonlocal">
+                    <div class="panel-section">
+                        <div class="panel-section-title">光源参数</div>
+                        <div class="param-group"><div class="param-label"><span>间距 d</span><span id="valD">4.0</span></div><input type="range" id="sliderD" min="0.5" max="10" step="0.1" value="4.0" /></div>
+                        <div class="param-group"><div class="param-label"><span>波长 λ (nm)</span><span id="valWavelength">632.8</span></div><input type="range" id="sliderWavelength" min="400" max="780" step="0.1" value="632.8" /></div>
+                        <div class="param-group"><div class="param-label"><span>光源半径</span><span id="valSourceRadius">0.30</span></div><input type="range" id="sliderSourceRadius" min="0.05" max="0.8" step="0.01" value="0.30" /></div>
+                    </div>
+                    <div class="panel-section">
+                        <div class="panel-section-title">接收屏 6-DOF + 边长</div>
+                        <div class="param-group"><div class="param-label"><span>边长</span><span id="valScreenSize">10.0</span></div><input type="range" id="sliderScreenSize" min="5" max="10" step="0.1" value="10.0" /></div>
+                        <div class="param-group"><div class="param-label"><span>X</span><span id="valScreenX">0.0</span></div><input type="range" id="sliderScreenX" min="-8" max="8" step="0.1" value="0" /></div>
+                        <div class="param-group"><div class="param-label"><span>Y</span><span id="valScreenY">0.0</span></div><input type="range" id="sliderScreenY" min="-6" max="6" step="0.1" value="0" /></div>
+                        <div class="param-group"><div class="param-label"><span>Z</span><span id="valScreenZ">6.0</span></div><input type="range" id="sliderScreenZ" min="-14" max="14" step="0.1" value="6" /></div>
+                        <div class="param-group"><div class="param-label"><span>旋转 X (°)</span><span id="valScreenRX">0</span></div><input type="range" id="sliderScreenRX" min="-180" max="180" step="1" value="0" /></div>
+                        <div class="param-group"><div class="param-label"><span>旋转 Y (°)</span><span id="valScreenRY">0</span></div><input type="range" id="sliderScreenRY" min="-180" max="180" step="1" value="0" /></div>
+                        <div class="param-group"><div class="param-label"><span>旋转 Z (°)</span><span id="valScreenRZ">0</span></div><input type="range" id="sliderScreenRZ" min="-180" max="180" step="1" value="0" /></div>
+                        <div class="checkbox-group"><input type="checkbox" id="chkShowScreen" checked /><label for="chkShowScreen">显示接收屏</label></div>
+                        <div class="checkbox-group"><input type="checkbox" id="chkShowHyperboloid" checked /><label for="chkShowHyperboloid">显示双叶双曲面</label></div>
+                    </div>
+                    <div class="info-line"><span id="fringeInfo">条纹数: ~12</span></div>
+                    <div class="info-text">
+                        <strong>非定域干涉说明：</strong><br />
+                        采用点光源照明迈克尔逊干涉仪，<sub>M</sub><sub>1</sub>与平行的虚像<sub>M</sub><sub>2</sub>'构成一对相干虚点光源。两个虚点光源发出两簇球面波，在整个空间内处处相干，不存在只有特定区域才能看到条纹的限制，这种干涉称为非定域干涉。空间中所有满足光程差等于定值的点构成双叶双曲面，每一张双曲面对应同一级干涉条纹。当接收屏放置在空间不同位置切割双叶双曲面时，截线形状不同，条纹形态随之改变：屏幕垂直两点光源连线放置，截线为圆形，观测到同心圆环；屏幕倾斜放置，截线变成椭圆；若屏幕靠近两虚光源连线侧面，条纹会转变为弧形甚至近似直线。由于空间各处均存在干涉场，无论光屏放在远近何处，都能观察到干涉图样，仅条纹形状、半径发生变化。
+                    </div>
+                </div>
+                <!-- 定域参数 -->
+                <div id="panelLocal" style="display:none;">
+                    <div class="pattern-area" id="patternAreaLocal"><canvas id="patternCanvasLocal"></canvas></div>
+                    <div class="pattern-label" id="patternInfoLocal">定域 · 等倾干涉</div>
+                    <div class="info-line"><span id="localFringeInfo">等倾 · 同心圆环</span></div>
+                    <div class="panel-section">
+                        <div class="panel-section-title">观察者 (眼睛)</div>
+                        <div class="param-group"><div class="param-label"><span>X</span><span id="valEyeX">0.0</span></div><input type="range" id="sliderEyeX" min="-6" max="6" step="0.1" value="0" /></div>
+                        <div class="param-group"><div class="param-label"><span>Y</span><span id="valEyeY">0.0</span></div><input type="range" id="sliderEyeY" min="-4" max="4" step="0.1" value="0" /></div>
+                        <div class="param-group"><div class="param-label"><span>Z</span><span id="valEyeZ">5.0</span></div><input type="range" id="sliderEyeZ" min="2" max="10" step="0.1" value="5" /></div>
+                        <div class="checkbox-group"><input type="checkbox" id="chkShowEye" checked /><label for="chkShowEye">显示眼睛</label></div>
+                    </div>
+                    <div class="panel-section">
+                        <div class="panel-section-title">光学器件调节</div>
+                        <div class="param-group"><div class="param-label"><span>M₁ 位置 Z</span><span id="valM1Z">3.0</span></div><input type="range" id="sliderM1Z" min="1.0" max="5.0" step="0.05" value="3.0" /></div>
+                        <div class="param-group"><div class="param-label"><span>M₁ 与 M₂' 的夹角 θ (mrad)</span><span id="valAngle">0.00</span></div><input type="range" id="sliderAngle" min="0" max="3" step="0.05" value="0" /></div>
+                    </div>
+                    <div class="info-text">
+                        <strong>定域干涉说明：</strong><br />
+                        采用扩展面光源照明迈克尔逊干涉仪时，扩展光源包含大量独立子波源，各组子波源产生的干涉条纹相互错位叠加。大部分空间区域条纹相互抵消变得模糊，只有特定空间区域能够观测到清晰条纹，这类干涉称为定域干涉。若调节至 <sub>M</sub><sub>1</sub> ∥ <sub>M</sub><sub>2</sub>'，空气薄膜厚度均匀，形成定域等倾干涉，条纹定域在无穷远处，依靠透镜焦平面或远眺方式观测；条纹由光线入射倾角决定，前后移动眼睛，圆环尺寸不变，视线偏移仅造成圆环中心跟随移动。若 <sub>M</sub><sub>1</sub> 与 <sub>M</sub><sub>2</sub>' 存在微小夹角，形成空气劈尖，则产生定域等厚干涉，条纹定域在空气薄膜附近；条纹由薄膜厚度决定，前后移动眼睛、改变观测角度，条纹间距、弯曲程度都会发生明显改变。简单来说：等倾干涉图样“位于远方”，观测距离不改变圆环大小；等厚干涉条纹如同“附着在薄膜表面”，观测位置与视角变化会直接改变条纹样貌。
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="scene-container" id="sceneContainer">
+            <div class="scene-overlay-label">拖拽旋转 · 滚轮缩放</div>
+        </div>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // DOM引用
+        const container = document.getElementById('sceneContainer');
+        const canvasPatternLocal = document.getElementById('patternCanvasLocal');
+        const patternAreaLocal = document.getElementById('patternAreaLocal');
+        const panelNonlocal = document.getElementById('panelNonlocal');
+        const panelLocal = document.getElementById('panelLocal');
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const chkShowEye = document.getElementById('chkShowEye');
+
+        // 非定域控件
+        const sliderD = document.getElementById('sliderD');
+        const valD = document.getElementById('valD');
+        const sliderWavelength = document.getElementById('sliderWavelength');
+        const valWavelength = document.getElementById('valWavelength');
+        const sliderSourceRadius = document.getElementById('sliderSourceRadius');
+        const valSourceRadius = document.getElementById('valSourceRadius');
+        const sliderScreenSize = document.getElementById('sliderScreenSize');
+        const valScreenSize = document.getElementById('valScreenSize');
+        const sliderScreenX = document.getElementById('sliderScreenX');
+        const valScreenX = document.getElementById('valScreenX');
+        const sliderScreenY = document.getElementById('sliderScreenY');
+        const valScreenY = document.getElementById('valScreenY');
+        const sliderScreenZ = document.getElementById('sliderScreenZ');
+        const valScreenZ = document.getElementById('valScreenZ');
+        const sliderScreenRX = document.getElementById('sliderScreenRX');
+        const valScreenRX = document.getElementById('valScreenRX');
+        const sliderScreenRY = document.getElementById('sliderScreenRY');
+        const valScreenRY = document.getElementById('valScreenRY');
+        const sliderScreenRZ = document.getElementById('sliderScreenRZ');
+        const valScreenRZ = document.getElementById('valScreenRZ');
+        const chkShowScreen = document.getElementById('chkShowScreen');
+        const chkShowHyperboloid = document.getElementById('chkShowHyperboloid');
+        const fringeInfo = document.getElementById('fringeInfo');
+
+        // 定域控件
+        const sliderEyeX = document.getElementById('sliderEyeX');
+        const valEyeX = document.getElementById('valEyeX');
+        const sliderEyeY = document.getElementById('sliderEyeY');
+        const valEyeY = document.getElementById('valEyeY');
+        const sliderEyeZ = document.getElementById('sliderEyeZ');
+        const valEyeZ = document.getElementById('valEyeZ');
+        const sliderM1Z = document.getElementById('sliderM1Z');
+        const valM1Z = document.getElementById('valM1Z');
+        const sliderAngle = document.getElementById('sliderAngle');
+        const valAngle = document.getElementById('valAngle');
+        const localFringeInfo = document.getElementById('localFringeInfo');
+        const patternInfoLocal = document.getElementById('patternInfoLocal');
+
+        let currentTab = 'nonlocal';
+
+        // ===== 场景初始化 =====
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+        const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 100);
+        camera.position.set(9, 6, 12);
+        camera.lookAt(0, 0, 0);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.target.set(0, 0.5, 0);
+        controls.update();
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(container.clientWidth, container.clientHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0';
+        labelRenderer.domElement.style.left = '0';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        container.appendChild(labelRenderer.domElement);
+
+        // 灯光
+        const ambient = new THREE.AmbientLight(0x8899bb, 0.6);
+        scene.add(ambient);
+        const dir = new THREE.DirectionalLight(0xffffff, 1.6);
+        dir.position.set(8, 16, 10);
+        scene.add(dir);
+        const fill = new THREE.DirectionalLight(0xccddff, 0.5);
+        fill.position.set(-6, 4, -8);
+        scene.add(fill);
+        const rim = new THREE.DirectionalLight(0xffffff, 0.3);
+        rim.position.set(0, -4, 8);
+        scene.add(rim);
+        const grid = new THREE.GridHelper(18, 18, 0xccccdd, 0xdddee8);
+        grid.position.y = -3;
+        scene.add(grid);
+
+        const dynamicGroup = new THREE.Group();
+        scene.add(dynamicGroup);
+        const labelGroup = new THREE.Group();
+        scene.add(labelGroup);
+
+        function createLabel(text, color = '#dc2626', size = '16px') {
+            const div = document.createElement('div');
+            div.textContent = text;
+            div.style.color = color;
+            div.style.fontSize = size;
+            div.style.fontWeight = '600';
+            div.style.textShadow = '0 0 20px rgba(255,255,255,0.9),0 0 8px rgba(255,255,255,0.8)';
+            div.style.background = 'rgba(255,255,255,0.7)';
+            div.style.padding = '2px 12px';
+            div.style.borderRadius = '12px';
+            div.style.backdropFilter = 'blur(4px)';
+            div.style.border = '1px solid rgba(0,0,0,0.04)';
+            return new CSS2DObject(div);
+        }
+
+        // ===== 非定域绘制函数 =====
+        function drawInterferencePattern(ctx, w, h, s1, s2, lambda, pos, quat, size, isTexture = false) {
+            if (w === 0 || h === 0) return;
+            const lambda_m = lambda * 1e6;
+            const halfW = w / 2,
+                halfH = h / 2;
+            const range = size;
+            const bgR = 255,
+                bgG = 255,
+                bgB = 255;
+            const redR = 255,
+                redG = 0,
+                redB = 0;
+            const imageData = ctx.createImageData(w, h);
+            const data = imageData.data;
+            const phaseScale = 3.0;
+            for (let py = 0; py < h; py++) {
+                for (let px = 0; px < w; px++) {
+                    const u = (px - halfW) / halfW * range;
+                    const v = (py - halfH) / halfH * range;
+                    const local = new THREE.Vector3(u, v, 0);
+                    const world = local.clone().applyQuaternion(quat).add(pos);
+                    const wx = world.x,
+                        wy = world.y,
+                        wz = world.z;
+                    const r1 = Math.sqrt((wx - s1.x) ** 2 + (wy - s1.y) ** 2 + (wz - s1.z) ** 2);
+                    const r2 = Math.sqrt((wx - s2.x) ** 2 + (wy - s2.y) ** 2 + (wz - s2.z) ** 2);
+                    const delta = (r1 - r2) * 1e6;
+                    const phase = (2 * Math.PI * delta) / lambda_m * phaseScale;
+                    let intensity = 0.5 + 0.5 * Math.cos(phase);
+                    intensity = Math.pow(intensity, 4);
+                    if (intensity < 0.01) intensity = 0;
+                    const dist = Math.sqrt(u * u + v * v) / (range * 0.9);
+                    let falloff = 1.0;
+                    if (dist > 1) falloff = Math.max(0, 1 - (dist - 1) * 2);
+                    const finalVal = intensity * falloff;
+                    const mix = finalVal;
+                    const r = Math.round(bgR * (1 - mix) + redR * mix);
+                    const g = Math.round(bgG * (1 - mix) + redG * mix);
+                    const b = Math.round(bgB * (1 - mix) + redB * mix);
+                    const idx = (py * w + px) * 4;
+                    data[idx] = r;
+                    data[idx + 1] = g;
+                    data[idx + 2] = b;
+                    data[idx + 3] = 255;
+                }
+            }
+            if (isTexture) {
+                const markSize = 8,
+                    cx = Math.floor(w / 2),
+                    cy = Math.floor(h / 2);
+                for (let i = -markSize; i <= markSize; i++) {
+                    const idx1 = ((cy + i) * w + cx) * 4;
+                    const idx2 = (cy * w + (cx + i)) * 4;
+                    if (idx1 >= 0 && idx1 < data.length) { data[idx1] = 0;
+                        data[idx1 + 1] = 255;
+                        data[idx1 + 2] = 0; }
+                    if (idx2 >= 0 && idx2 < data.length) { data[idx2] = 0;
+                        data[idx2 + 1] = 255;
+                        data[idx2 + 2] = 0; }
+                }
+                ctx.putImageData(imageData, 0, 0);
+                ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(0, 0, w, h);
+                ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+                ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                ctx.moveTo(w / 2, 0);
+                ctx.lineTo(w / 2, h);
+                ctx.moveTo(0, h / 2);
+                ctx.lineTo(w, h / 2);
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                ctx.font = '12px sans-serif';
+                ctx.fillText('接收屏', 8, 16);
+            } else {
+                ctx.putImageData(imageData, 0, 0);
+            }
+        }
+
+        // ===== 非定域场景构建 =====
+        let screenTexture = null;
+
+        function buildHyperboloidSurfaces(s1, s2, lambda, d, sourceRadius) {
+            const group = new THREE.Group();
+            const orders = [];
+            for (let m = -6; m <= 6; m++) { if (m === 0) continue;
+                orders.push(m); }
+            const baseRadius = d * 1.2 + 0.5;
+            const radiusScale = 0.5 + sourceRadius * 1.0;
+            const rMax = baseRadius * radiusScale;
+            orders.forEach((m) => {
+                const path = m * lambda * 1e6;
+                const a = Math.abs(path) / 2;
+                const c = d / 2;
+                const b = Math.sqrt(Math.max(0, c * c - a * a));
+                if (b <= 0) return;
+                const sign = m > 0 ? 1 : -1;
+                const segmentsR = 30,
+                    segmentsTheta = 40;
+                const vertices = [],
+                    indices = [],
+                    normals = [];
+                for (let i = 0; i <= segmentsR; i++) {
+                    const r = (i / segmentsR) * rMax;
+                    for (let j = 0; j <= segmentsTheta; j++) {
+                        const theta = (j / segmentsTheta) * 2 * Math.PI;
+                        const x = sign * a * Math.sqrt(1 + r * r / (b * b));
+                        const y = r * Math.cos(theta);
+                        const z = r * Math.sin(theta);
+                        vertices.push(x, y, z);
+                        const nx = sign * a / (b * b) * r / Math.sqrt(1 + r * r / (b * b));
+                        const ny = Math.cos(theta);
+                        const nz = Math.sin(theta);
+                        const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+                        normals.push(nx / len, ny / len, nz / len);
+                    }
+                }
+                for (let i = 0; i < segmentsR; i++) {
+                    for (let j = 0; j < segmentsTheta; j++) {
+                        const a0 = i * (segmentsTheta + 1) + j;
+                        const a1 = a0 + 1;
+                        const b0 = (i + 1) * (segmentsTheta + 1) + j;
+                        const b1 = b0 + 1;
+                        indices.push(a0, a1, b1);
+                        indices.push(a0, b1, b0);
+                    }
+                }
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+                geo.setIndex(indices);
+                geo.computeVertexNormals();
+                const color = m % 2 === 0 ? 0xdc2626 : 0xf59e0b;
+                const mat = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: 0.20, side: THREE
+                        .DoubleSide, depthWrite: false, shininess: 30 });
+                const mesh = new THREE.Mesh(geo, mat);
+                group.add(mesh);
+            });
+            return group;
+        }
+
+        function buildNonlocalScene() {
+            while (dynamicGroup.children.length) { const c = dynamicGroup.children[0]; if (c.geometry) c.geometry.dispose(); if (c
+                    .material) c.material.dispose();
+                dynamicGroup.remove(c); }
+            while (labelGroup.children.length) labelGroup.remove(labelGroup.children[0]);
+
+            const d = parseFloat(sliderD.value);
+            const lambda = parseFloat(sliderWavelength.value) * 1e-9;
+            const sourceRadius = parseFloat(sliderSourceRadius.value);
+            const size = parseFloat(sliderScreenSize.value);
+            const pos = new THREE.Vector3(parseFloat(sliderScreenX.value), parseFloat(sliderScreenY.value), parseFloat(
+                sliderScreenZ.value));
+            const rot = new THREE.Euler(
+                parseFloat(sliderScreenRX.value) * Math.PI / 180,
+                parseFloat(sliderScreenRY.value) * Math.PI / 180,
+                parseFloat(sliderScreenRZ.value) * Math.PI / 180
+            );
+            const quat = new THREE.Quaternion().setFromEuler(rot);
+            const showScreen = chkShowScreen.checked;
+            const showHyper = chkShowHyperboloid.checked;
+            const s1 = new THREE.Vector3(-d / 2, 0, 0);
+            const s2 = new THREE.Vector3(d / 2, 0, 0);
+
+            // 光源
+            const sphereGeo = new THREE.SphereGeometry(sourceRadius, 32, 32);
+            const mat1 = new THREE.MeshStandardMaterial({ color: 0xdc2626, emissive: 0xf87171, emissiveIntensity: 0.6,
+                roughness: 0.2, metalness: 0.2 });
+            const sphere1 = new THREE.Mesh(sphereGeo, mat1);
+            sphere1.position.copy(s1);
+            sphere1.castShadow = true;
+            dynamicGroup.add(sphere1);
+            const sphere2 = new THREE.Mesh(sphereGeo.clone(), mat1.clone());
+            sphere2.position.copy(s2);
+            sphere2.castShadow = true;
+            dynamicGroup.add(sphere2);
+            const glowMat = new THREE.MeshBasicMaterial({ color: 0xdc2626, transparent: true, opacity: 0.08 });
+            const glow1 = new THREE.Mesh(new THREE.SphereGeometry(sourceRadius * 1.8, 16, 16), glowMat);
+            glow1.position.copy(s1);
+            dynamicGroup.add(glow1);
+            const glow2 = new THREE.Mesh(new THREE.SphereGeometry(sourceRadius * 1.8, 16, 16), glowMat.clone());
+            glow2.position.copy(s2);
+            dynamicGroup.add(glow2);
+            const beamMat = new THREE.LineBasicMaterial({ color: 0xdc2626, transparent: true, opacity: 0.06 });
+            for (let i = 0; i < 12; i++) {
+                const theta = (i / 12) * 2 * Math.PI;
+                const phi = Math.PI / 4;
+                const dir = new THREE.Vector3(Math.cos(theta) * Math.sin(phi), Math.sin(theta) * Math.sin(phi), Math.cos(
+                    phi));
+                const end1 = s1.clone().add(dir.clone().multiplyScalar(1.5));
+                const end2 = s2.clone().add(dir.clone().multiplyScalar(1.5));
+                dynamicGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([s1, end1]), beamMat));
+                dynamicGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([s2, end2]), beamMat.clone()));
+            }
+            const label1 = createLabel('He-Ne₁', '#dc2626', '17px');
+            label1.position.set(s1.x, s1.y - sourceRadius - 0.6, s1.z);
+            labelGroup.add(label1);
+            const label2 = createLabel('He-Ne₂', '#dc2626', '17px');
+            label2.position.set(s2.x, s2.y - sourceRadius - 0.6, s2.z);
+            labelGroup.add(label2);
+            const lineMat = new THREE.LineDashedMaterial({ color: 0xdc2626, dashSize: 0.15, gapSize: 0.1, transparent: true,
+                opacity: 0.15 });
+            const pts = [s1, s2];
+            const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat);
+            line.computeLineDistances();
+            dynamicGroup.add(line);
+            const mid = new THREE.Vector3(0, -0.5, 0);
+            const labelD = createLabel(`d = ${d.toFixed(1)}`, '#475569', '15px');
+            labelD.position.copy(mid);
+            labelGroup.add(labelD);
+            if (showHyper) {
+                dynamicGroup.add(buildHyperboloidSurfaces(s1, s2, lambda, d, sourceRadius));
+            }
+            if (showScreen) {
+                const texSize = 1024;
+                const texCanvas = document.createElement('canvas');
+                texCanvas.width = texSize;
+                texCanvas.height = texSize;
+                const texCtx = texCanvas.getContext('2d');
+                drawInterferencePattern(texCtx, texSize, texSize, s1, s2, lambda, pos, quat, size, true);
+                const texture = new THREE.CanvasTexture(texCanvas);
+                texture.needsUpdate = true;
+                screenTexture = texture;
+                const mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, transparent: false });
+                const geo = new THREE.PlaneGeometry(size, size);
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.copy(pos);
+                mesh.quaternion.copy(quat);
+                mesh.castShadow = false;
+                dynamicGroup.add(mesh);
+                const borderGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(size, size));
+                const borderMat = new THREE.LineBasicMaterial({ color: 0x888899, transparent: true, opacity: 0.3 });
+                const border = new THREE.LineSegments(borderGeo, borderMat);
+                border.position.copy(pos);
+                border.quaternion.copy(quat);
+                dynamicGroup.add(border);
+                const label = createLabel('接收屏', '#dc2626', '15px');
+                const upLocal = new THREE.Vector3(0, size / 2 + 0.4, 0);
+                const worldOffset = upLocal.clone().applyQuaternion(quat);
+                label.position.copy(pos.clone().add(worldOffset));
+                labelGroup.add(label);
+                window.__screenTexCanvas = texCanvas;
+                window.__screenTexCtx = texCtx;
+                window.__screenTexSize = texSize;
+                window.__screenParams = { s1, s2, lambda, pos, quat, size };
+            }
+            const maxOrder = Math.floor(d / (lambda * 1e6));
+            fringeInfo.textContent = `条纹数: ~${Math.max(1, Math.abs(maxOrder))}`;
+        }
+
+        // ===== 定域场景构建 =====
+        function buildLocalScene() {
+            // 清空组
+            while (dynamicGroup.children.length) { const c = dynamicGroup.children[0]; if (c.geometry) c.geometry.dispose(); if (c
+                    .material) c.material.dispose();
+                dynamicGroup.remove(c); }
+            while (labelGroup.children.length) labelGroup.remove(labelGroup.children[0]);
+
+            const eyePos = new THREE.Vector3(parseFloat(sliderEyeX.value), parseFloat(sliderEyeY.value), parseFloat(
+                sliderEyeZ.value));
+            const m1zOffset = parseFloat(sliderM1Z.value);
+            const angleRad = parseFloat(sliderAngle.value) * 1e-3;
+            const showEye = chkShowEye.checked;
+
+            // ---- 辅助函数：创建圆柱体线段 ----
+            function createCylinderLine(start, end, radius = 0.0225, color = 0xffcc00) {
+                const dir = new THREE.Vector3().copy(end).sub(start);
+                const length = dir.length();
+                if (length < 0.001) return null;
+                const mid = new THREE.Vector3().copy(start).add(end).multiplyScalar(0.5);
+                const geo = new THREE.CylinderGeometry(radius, radius, length, 8, 1);
+                const mat = new THREE.MeshBasicMaterial({ color: color });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.copy(mid);
+                const up = new THREE.Vector3(0, 1, 0);
+                const quat = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
+                mesh.quaternion.copy(quat);
+                return mesh;
+            }
+
+            // ---- 1. 平行光光源 ----
+            const lightGeo = new THREE.PlaneGeometry(1.2, 0.9);
+            const lightMat = new THREE.MeshBasicMaterial({ color: 0xffdd44, transparent: true, opacity: 0.4, side: THREE
+                    .DoubleSide, emissive: 0xffdd44, emissiveIntensity: 0.6 });
+            const lightMesh = new THREE.Mesh(lightGeo, lightMat);
+            lightMesh.position.set(-4.5, 0.4, 0);
+            lightMesh.rotation.y = Math.PI / 2;
+            dynamicGroup.add(lightMesh);
+            const lightEdge = new THREE.EdgesGeometry(lightGeo);
+            const lightLine = new THREE.LineSegments(lightEdge, new THREE.LineBasicMaterial({ color: 0xffdd44,
+                transparent: true, opacity: 0.3 }));
+            lightLine.position.copy(lightMesh.position);
+            lightLine.rotation.copy(lightMesh.rotation);
+            dynamicGroup.add(lightLine);
+            const labelLight = createLabel('平行光', '#f59e0b', '15px');
+            labelLight.position.set(-4.5, 1.2, 0);
+            labelGroup.add(labelLight);
+
+            // ---- 定义关键点 ----
+            const bsPos = new THREE.Vector3(0, 0.4, 0);
+            const cpDist = 0.8;
+            const cpPos = new THREE.Vector3(cpDist, 0.4, 0);
+            const m2Dist = 1.6;
+            const m2Pos = new THREE.Vector3(cpDist + m2Dist, 0.4, 0);
+            const totalM2Dist = cpDist + m2Dist;
+            const m1BaseZ = -totalM2Dist;
+            const m1Z = m1BaseZ + (m1zOffset - 3.0) * 0.5;
+            const m1Pos = new THREE.Vector3(0, 0.4, m1Z);
+
+            const srcStart = new THREE.Vector3(-4.0, 0.4, 0);
+            const beamEnd = new THREE.Vector3(-2.5, 0.4, 0);
+
+            // ---- 光路：入射光到分束镜 ----
+            const p1 = srcStart;
+            const p3 = bsPos.clone();
+
+            // ---- 反射光路：分束镜 → M1 → 分束镜 ----
+            const p4 = new THREE.Vector3(0, 0.4, m1Z * 0.5);
+            const p5 = m1Pos.clone();
+            const p6 = p4.clone();
+            const p7 = bsPos.clone();
+
+            // ---- 透射光路：分束镜 → 补偿镜 → M2 → 补偿镜 → 分束镜 ----
+            const p8 = new THREE.Vector3(0.4, 0.4, 0);
+            const p9 = cpPos.clone();
+            const p10 = new THREE.Vector3((cpPos.x + m2Pos.x) / 2, 0.4, 0);
+            const p11 = m2Pos.clone();
+            const p12 = p10.clone();
+            const p13 = p9.clone();
+            const p14 = p8.clone();
+            const p15 = bsPos.clone();
+
+            // ---- 生成粗光路线段 ----
+            const lightColor = 0xffcc00;
+            const radius = 0.0225;
+
+            // 入射光
+            const segInc = createCylinderLine(p1, p3, radius, lightColor);
+            if (segInc) dynamicGroup.add(segInc);
+
+            // 反射路径
+            const seg3 = createCylinderLine(p3, p4, radius, lightColor);
+            if (seg3) dynamicGroup.add(seg3);
+            const seg4 = createCylinderLine(p4, p5, radius, lightColor);
+            if (seg4) dynamicGroup.add(seg4);
+            const seg5 = createCylinderLine(p5, p6, radius, lightColor);
+            if (seg5) dynamicGroup.add(seg5);
+            const seg6 = createCylinderLine(p6, p7, radius, lightColor);
+            if (seg6) dynamicGroup.add(seg6);
+
+            // 透射路径
+            const seg7 = createCylinderLine(p3, p8, radius, lightColor);
+            if (seg7) dynamicGroup.add(seg7);
+            const seg8 = createCylinderLine(p8, p9, radius, lightColor);
+            if (seg8) dynamicGroup.add(seg8);
+            const seg9 = createCylinderLine(p9, p10, radius, lightColor);
+            if (seg9) dynamicGroup.add(seg9);
+            const seg10 = createCylinderLine(p10, p11, radius, lightColor);
+            if (seg10) dynamicGroup.add(seg10);
+            const seg11 = createCylinderLine(p11, p12, radius, lightColor);
+            if (seg11) dynamicGroup.add(seg11);
+            const seg12 = createCylinderLine(p12, p13, radius, lightColor);
+            if (seg12) dynamicGroup.add(seg12);
+            const seg13 = createCylinderLine(p13, p14, radius, lightColor);
+            if (seg13) dynamicGroup.add(seg13);
+            const seg14 = createCylinderLine(p14, p15, radius, lightColor);
+            if (seg14) dynamicGroup.add(seg14);
+
+            // 合束后固定出射光
+            const segBeam = createCylinderLine(p7, beamEnd, radius, lightColor);
+            if (segBeam) dynamicGroup.add(segBeam);
+
+            // ---- 从分束点到眼睛的光线 ----
+            if (showEye) {
+                const eyeRay = createCylinderLine(bsPos, eyePos, radius, lightColor);
+                if (eyeRay) dynamicGroup.add(eyeRay);
+            }
+
+            // 发光光晕（分束点）
+            const glowMat = new THREE.MeshBasicMaterial({
+                color: 0xffdd44,
+                transparent: true,
+                opacity: 0.3,
+            });
+            const glowGeo = new THREE.SphereGeometry(0.12, 16, 16);
+            const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+            glowMesh.position.copy(bsPos);
+            dynamicGroup.add(glowMesh);
+
+            // ---- 2. 分束镜 ----
+            const bsRotY = -Math.PI / 4;
+            const bsGeo = new THREE.BoxGeometry(0.06, 1.8, 1.4);
+            const bsMat = new THREE.MeshPhysicalMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.35, roughness: 0.05,
+                metalness: 0.1 });
+            const bs = new THREE.Mesh(bsGeo, bsMat);
+            bs.position.copy(bsPos);
+            bs.rotation.y = bsRotY;
+            dynamicGroup.add(bs);
+            const bsEdge = new THREE.EdgesGeometry(bsGeo);
+            const bsLine = new THREE.LineSegments(bsEdge, new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true,
+                opacity: 0.2 }));
+            bsLine.position.copy(bsPos);
+            bsLine.rotation.y = bsRotY;
+            dynamicGroup.add(bsLine);
+            const labelBS = createLabel('分束镜', '#3b82f6', '15px');
+            labelBS.position.set(bsPos.x, bsPos.y + 1.4, bsPos.z);
+            labelGroup.add(labelBS);
+
+            // ---- 3. 补偿镜 ----
+            const cpGeo = new THREE.BoxGeometry(0.05, 1.8, 1.4);
+            const cpMat = new THREE.MeshPhysicalMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.25 });
+            const cp = new THREE.Mesh(cpGeo, cpMat);
+            cp.position.copy(cpPos);
+            cp.rotation.y = bsRotY;
+            dynamicGroup.add(cp);
+            const cpEdge = new THREE.EdgesGeometry(cpGeo);
+            const cpLine = new THREE.LineSegments(cpEdge, new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true,
+                opacity: 0.15 }));
+            cpLine.position.copy(cpPos);
+            cpLine.rotation.y = bsRotY;
+            dynamicGroup.add(cpLine);
+            const labelCP = createLabel('补偿镜', '#8b5cf6', '15px');
+            labelCP.position.set(cpPos.x, cpPos.y + 1.4, cpPos.z);
+            labelGroup.add(labelCP);
+
+            // ---- 4. M2静镜 ----
+            const mirrorSize = 1.6;
+            const m2Geo = new THREE.PlaneGeometry(mirrorSize, mirrorSize);
+            const m2Mat = new THREE.MeshPhysicalMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1, side: THREE
+                    .DoubleSide });
+            const m2 = new THREE.Mesh(m2Geo, m2Mat);
+            m2.position.copy(m2Pos);
+            m2.rotation.y = Math.PI / 2;
+            dynamicGroup.add(m2);
+            const m2Edge = new THREE.EdgesGeometry(m2Geo);
+            const m2Line = new THREE.LineSegments(m2Edge, new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true,
+                opacity: 0.3 }));
+            m2Line.position.copy(m2Pos);
+            m2Line.rotation.y = Math.PI / 2;
+            dynamicGroup.add(m2Line);
+            const labelM2 = createLabel('M₂ (静镜)', '#8b5cf6', '16px');
+            labelM2.position.set(m2Pos.x, m2Pos.y + mirrorSize / 2 + 0.3, m2Pos.z);
+            labelGroup.add(labelM2);
+
+            // ---- 5. M1动镜 ----
+            const m1Geo = new THREE.PlaneGeometry(mirrorSize, mirrorSize);
+            const m1Mat = new THREE.MeshPhysicalMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 });
+            const m1 = new THREE.Mesh(m1Geo, m1Mat);
+            m1.position.copy(m1Pos);
+            m1.rotation.y = angleRad;
+            dynamicGroup.add(m1);
+            const m1Edge = new THREE.EdgesGeometry(m1Geo);
+            const m1Line = new THREE.LineSegments(m1Edge, new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true,
+                opacity: 0.3 }));
+            m1Line.position.copy(m1Pos);
+            m1Line.rotation.y = angleRad;
+            dynamicGroup.add(m1Line);
+            const labelM1 = createLabel('M₁ (动镜)', '#8b5cf6', '16px');
+            labelM1.position.set(m1Pos.x, m1Pos.y + mirrorSize / 2 + 0.3, m1Pos.z);
+            labelGroup.add(labelM1);
+
+            // ---- 6. 辅助半透明光线 ----
+            const helperMat = new THREE.LineBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.08 });
+            const pts1 = [new THREE.Vector3(-3.5, 0.4, 0), new THREE.Vector3(-0.3, 0.4, 0)];
+            dynamicGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts1), helperMat));
+            const pts2 = [new THREE.Vector3(0, 0.4, -0.3), new THREE.Vector3(0, 0.4, m1Z + 0.3)];
+            dynamicGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts2), helperMat));
+            const pts3 = [new THREE.Vector3(0.2, 0.4, 0), new THREE.Vector3(cpPos.x - 0.1, 0.4, 0)];
+            dynamicGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts3), helperMat));
+            const pts4 = [new THREE.Vector3(cpPos.x + 0.1, 0.4, 0), new THREE.Vector3(m2Pos.x - 0.1, 0.4, 0)];
+            dynamicGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts4), helperMat));
+
+            // ---- 7. 眼睛（带从分束点射入的光线） ----
+            if (showEye) {
+                const eyeGeo = new THREE.SphereGeometry(0.28, 24, 24);
+                const eyeMat = new THREE.MeshPhysicalMaterial({ color: 0xf59e0b, emissive: 0xfbbf24, emissiveIntensity: 0.15 });
+                const eyeMesh = new THREE.Mesh(eyeGeo, eyeMat);
+                eyeMesh.position.copy(eyePos);
+                dynamicGroup.add(eyeMesh);
+                const eyeGlow = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfbbf24,
+                    transparent: true, opacity: 0.06 }));
+                eyeGlow.position.copy(eyePos);
+                dynamicGroup.add(eyeGlow);
+                const labelEye = createLabel('👁 眼睛', '#f59e0b', '16px');
+                labelEye.position.set(eyePos.x, eyePos.y + 0.7, eyePos.z);
+                labelGroup.add(labelEye);
+            }
+
+            // ---- 8. 左侧图样 ----
+            updatePatternLocal(eyePos, m1zOffset, angleRad);
+            const angleDisplay = (angleRad * 1000).toFixed(2);
+            const isEqualInclination = Math.abs(angleRad) < 0.0005;
+            const modeName = isEqualInclination ? '等倾' : '等厚';
+            localFringeInfo.textContent = `${modeName} · M₁Z=${m1zOffset.toFixed(2)} · θ=${angleDisplay} mrad`;
+            patternInfoLocal.textContent = `定域 · ${modeName} 干涉`;
+        }
+
+        // 更新左侧图样（定域）
+        function updatePatternLocal(eyePos, m1z, angle) {
+            const rect = patternAreaLocal.getBoundingClientRect();
+            const w = Math.min(rect.width, rect.height);
+            if (w === 0) return;
+            canvasPatternLocal.width = w * 2;
+            canvasPatternLocal.height = w * 2;
+            canvasPatternLocal.style.width = w + 'px';
+            canvasPatternLocal.style.height = w + 'px';
+            const ctx = canvasPatternLocal.getContext('2d');
+            ctx.scale(2, 2);
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, w, w);
+
+            const isEqualInclination = Math.abs(angle) < 0.0005;
+            const lambda_m = 0.6328;
+            const delta = (m1z - 3.0) * 2.5;
+
+            const imageData = ctx.createImageData(w, w);
+            const data = imageData.data;
+
+            const ex = eyePos.x * 0.05;
+            const ey = eyePos.y * 0.05;
+            const ez = eyePos.z * 0.05;
+
+            const scale = 1.2;
+
+            for (let py = 0; py < w; py++) {
+                for (let px = 0; px < w; px++) {
+                    const u = (px - w / 2) / (w / 2);
+                    const v = (py - w / 2) / (w / 2);
+                    let intensity = 0.5;
+                    if (isEqualInclination) {
+                        const theta = Math.sqrt(u * u + v * v) * scale;
+                        const phase = 2 * Math.PI * delta / lambda_m * Math.cos(theta);
+                        intensity = 0.5 + 0.5 * Math.cos(phase);
+                        intensity *= Math.exp(-(u*u + v*v) * 0.4);
+                    } else {
+                        const k = angle * 10000;
+                        const m1zPhase = (m1z - 3.0) * 40.0;
+                        const shiftX = ex * 0.3;
+                        const shiftY = ey * 0.3;
+                        const bend = 0.3 + ex * 0.5;
+                        const scaleZ = 1 + ez * 0.2;
+                        const xEff = (u - shiftX) * (1 + bend * v * v) * scaleZ + v * 0.1;
+                        const yEff = (v - shiftY) * scaleZ;
+                        const phase = 2 * Math.PI * (xEff * k + m1zPhase);
+                        intensity = 0.5 + 0.5 * Math.cos(phase);
+                        intensity *= Math.exp(-(u*u + v*v) * 0.25);
+                    }
+                    const val = Math.max(0, Math.min(1, intensity));
+                    const idx = (py * w + px) * 4;
+                    data[idx] = Math.floor(200 * val + 30);
+                    data[idx + 1] = Math.floor(30 * val);
+                    data[idx + 2] = Math.floor(30 * val);
+                    data[idx + 3] = 255;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, w, w);
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.font = '13px sans-serif';
+            ctx.fillText(isEqualInclination ? '等倾干涉' : '等厚干涉', 8, 18);
+        }
+
+        // ===== 切换逻辑 =====
+        function switchTab(tab) {
+            currentTab = tab;
+            tabBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+            if (tab === 'nonlocal') {
+                panelNonlocal.style.display = 'block';
+                panelLocal.style.display = 'none';
+                document.getElementById('modeBadge').textContent = '双叶双曲面 · He-Ne';
+                buildNonlocalScene();
+            } else {
+                panelNonlocal.style.display = 'none';
+                panelLocal.style.display = 'block';
+                document.getElementById('modeBadge').textContent = '定域干涉';
+                buildLocalScene();
+            }
+        }
+
+        // 事件绑定
+        tabBtns.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+        // 非定域控件
+        const nonlocalSliders = [sliderD, sliderWavelength, sliderSourceRadius, sliderScreenSize,
+            sliderScreenX, sliderScreenY, sliderScreenZ,
+            sliderScreenRX, sliderScreenRY, sliderScreenRZ
+        ];
+        const nonlocalVals = [valD, valWavelength, valSourceRadius, valScreenSize,
+            valScreenX, valScreenY, valScreenZ,
+            valScreenRX, valScreenRY, valScreenRZ
+        ];
+        nonlocalSliders.forEach((slider, idx) => {
+            slider.addEventListener('input', () => {
+                const v = parseFloat(slider.value);
+                nonlocalVals[idx].textContent = (idx < 4) ? v.toFixed(2) : v.toFixed(0);
+                if (currentTab === 'nonlocal') buildNonlocalScene();
+            });
+        });
+        chkShowScreen.addEventListener('change', () => { if (currentTab === 'nonlocal') buildNonlocalScene(); });
+        chkShowHyperboloid.addEventListener('change', () => { if (currentTab === 'nonlocal') buildNonlocalScene(); });
+
+        // 定域控件
+        const localSliders = [sliderEyeX, sliderEyeY, sliderEyeZ, sliderM1Z, sliderAngle];
+        const localVals = [valEyeX, valEyeY, valEyeZ, valM1Z, valAngle];
+        localSliders.forEach((slider, idx) => {
+            slider.addEventListener('input', () => {
+                const v = parseFloat(slider.value);
+                localVals[idx].textContent = (idx < 3) ? v.toFixed(1) : v.toFixed(2);
+                if (currentTab === 'local') buildLocalScene();
+            });
+        });
+        chkShowEye.addEventListener('change', () => { if (currentTab === 'local') buildLocalScene(); });
+
+        // 窗口resize
+        function resizeRenderer() {
+            const w = container.clientWidth,
+                h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+            labelRenderer.setSize(w, h);
+            if (currentTab === 'nonlocal') {
+                // 非定域无左侧图样
+            } else {
+                const eyePos = new THREE.Vector3(parseFloat(sliderEyeX.value), parseFloat(sliderEyeY.value), parseFloat(
+                    sliderEyeZ.value));
+                const m1z = parseFloat(sliderM1Z.value);
+                const angle = parseFloat(sliderAngle.value) * 1e-3;
+                updatePatternLocal(eyePos, m1z, angle);
+            }
+        }
+        window.addEventListener('resize', resizeRenderer);
+        const ro = new ResizeObserver(resizeRenderer);
+        ro.observe(container);
+
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+
+        // 初始化
+        switchTab('nonlocal');
+        animate();
+
+        // 非定域纹理定时刷新
+        setInterval(() => {
+            if (currentTab === 'nonlocal' && window.__screenTexCanvas) {
+                const d = parseFloat(sliderD.value);
+                const lambda = parseFloat(sliderWavelength.value) * 1e-9;
+                const s1 = new THREE.Vector3(-d / 2, 0, 0);
+                const s2 = new THREE.Vector3(d / 2, 0, 0);
+                const pos = new THREE.Vector3(parseFloat(sliderScreenX.value), parseFloat(sliderScreenY.value), parseFloat(
+                    sliderScreenZ.value));
+                const rot = new THREE.Euler(
+                    parseFloat(sliderScreenRX.value) * Math.PI / 180,
+                    parseFloat(sliderScreenRY.value) * Math.PI / 180,
+                    parseFloat(sliderScreenRZ.value) * Math.PI / 180
+                );
+                const quat = new THREE.Quaternion().setFromEuler(rot);
+                const size = parseFloat(sliderScreenSize.value);
+                const canvas = window.__screenTexCanvas;
+                const ctx = window.__screenTexCtx;
+                const texSize = window.__screenTexSize;
+                drawInterferencePattern(ctx, texSize, texSize, s1, s2, lambda, pos, quat, size, true);
+                if (screenTexture) screenTexture.needsUpdate = true;
+            }
+        }, 150);
+
+        console.log('迈克尔逊干涉仪 3D 仿真 (白色主题) 已启动！');
+    </script>
+</body>
+</html>
