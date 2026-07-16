@@ -14,7 +14,7 @@
         .tab-btn.active { background:rgba(220,38,38,0.12); color:#dc2626; }
         .header-right { display:flex; align-items:center; gap:14px; color:#64748b; font-size:16px; }
         .main { display:flex; height:calc(100vh - 64px); }
-        .panel { width:340px; min-width:340px; background:rgba(255,255,255,0.95); border-right:1px solid rgba(0,0,0,0.06); padding:10px 14px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+        .panel { width:510px; min-width:510px; background:rgba(255,255,255,0.95); border-right:1px solid rgba(0,0,0,0.06); padding:10px 14px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
         .panel-section { background:rgba(0,0,0,0.02); border-radius:8px; padding:8px 14px; border:1px solid rgba(0,0,0,0.06); }
         .panel-section-title { font-size:16px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:4px; }
         .param-group { display:flex; flex-direction:column; gap:1px; margin-bottom:4px; }
@@ -34,12 +34,11 @@
         .info-text { font-size:15px; color:#475569; line-height:1.6; padding:8px 10px; margin-top:8px; background:rgba(0,0,0,0.02); border-radius:6px; border-left:3px solid #dc2626; }
         .info-text sub { font-size:0.9em; }
         .info-text sup { font-size:0.9em; }
-        @media (max-width:1100px) { .panel { width:280px; min-width:280px; } }
-        @media (max-width:768px) { .panel { width:220px; min-width:220px; } .header h1 { font-size:20px; } .tab-btn { padding:4px 12px; font-size:15px; } }
+        @media (max-width:1100px) { .panel { width:400px; min-width:400px; } }
+        @media (max-width:768px) { .panel { width:300px; min-width:300px; } .header h1 { font-size:20px; } .tab-btn { padding:4px 12px; font-size:15px; } }
     </style>
 </head>
 <body>
-    <!-- 顶部导航和左侧面板 -->
     <header class="header">
         <h1>⚡ 迈克尔逊干涉仪 · 3D 仿真</h1>
         <div class="tabs">
@@ -480,10 +479,15 @@
         // ===== 定域场景构建 =====
         function buildLocalScene() {
             // 清空组
-            while (dynamicGroup.children.length) { const c = dynamicGroup.children[0]; if (c.geometry) c.geometry.dispose(); if (c
-                    .material) c.material.dispose();
-                dynamicGroup.remove(c); }
-            while (labelGroup.children.length) labelGroup.remove(labelGroup.children[0]);
+            while (dynamicGroup.children.length) {
+                const c = dynamicGroup.children[0];
+                if (c.geometry) c.geometry.dispose();
+                if (c.material) c.material.dispose();
+                dynamicGroup.remove(c);
+            }
+            while (labelGroup.children.length) {
+                labelGroup.remove(labelGroup.children[0]);
+            }
 
             const eyePos = new THREE.Vector3(parseFloat(sliderEyeX.value), parseFloat(sliderEyeY.value), parseFloat(
                 sliderEyeZ.value));
@@ -509,15 +513,24 @@
 
             // ---- 1. 平行光光源 ----
             const lightGeo = new THREE.PlaneGeometry(1.2, 0.9);
-            const lightMat = new THREE.MeshBasicMaterial({ color: 0xffdd44, transparent: true, opacity: 0.4, side: THREE
-                    .DoubleSide, emissive: 0xffdd44, emissiveIntensity: 0.6 });
+            const lightMat = new THREE.MeshBasicMaterial({
+                color: 0xffdd44,
+                transparent: true,
+                opacity: 0.4,
+                side: THREE.DoubleSide,
+                emissive: 0xffdd44,
+                emissiveIntensity: 0.6,
+            });
             const lightMesh = new THREE.Mesh(lightGeo, lightMat);
             lightMesh.position.set(-4.5, 0.4, 0);
             lightMesh.rotation.y = Math.PI / 2;
             dynamicGroup.add(lightMesh);
             const lightEdge = new THREE.EdgesGeometry(lightGeo);
-            const lightLine = new THREE.LineSegments(lightEdge, new THREE.LineBasicMaterial({ color: 0xffdd44,
-                transparent: true, opacity: 0.3 }));
+            const lightLine = new THREE.LineSegments(lightEdge, new THREE.LineBasicMaterial({
+                color: 0xffdd44,
+                transparent: true,
+                opacity: 0.3,
+            }));
             lightLine.position.copy(lightMesh.position);
             lightLine.rotation.copy(lightMesh.rotation);
             dynamicGroup.add(lightLine);
@@ -619,15 +632,23 @@
             // ---- 2. 分束镜 ----
             const bsRotY = -Math.PI / 4;
             const bsGeo = new THREE.BoxGeometry(0.06, 1.8, 1.4);
-            const bsMat = new THREE.MeshPhysicalMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.35, roughness: 0.05,
-                metalness: 0.1 });
+            const bsMat = new THREE.MeshPhysicalMaterial({
+                color: 0x94a3b8,
+                transparent: true,
+                opacity: 0.35,
+                roughness: 0.05,
+                metalness: 0.1,
+            });
             const bs = new THREE.Mesh(bsGeo, bsMat);
             bs.position.copy(bsPos);
             bs.rotation.y = bsRotY;
             dynamicGroup.add(bs);
             const bsEdge = new THREE.EdgesGeometry(bsGeo);
-            const bsLine = new THREE.LineSegments(bsEdge, new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true,
-                opacity: 0.2 }));
+            const bsLine = new THREE.LineSegments(bsEdge, new THREE.LineBasicMaterial({
+                color: 0x3b82f6,
+                transparent: true,
+                opacity: 0.2,
+            }));
             bsLine.position.copy(bsPos);
             bsLine.rotation.y = bsRotY;
             dynamicGroup.add(bsLine);
@@ -637,14 +658,21 @@
 
             // ---- 3. 补偿镜 ----
             const cpGeo = new THREE.BoxGeometry(0.05, 1.8, 1.4);
-            const cpMat = new THREE.MeshPhysicalMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.25 });
+            const cpMat = new THREE.MeshPhysicalMaterial({
+                color: 0x94a3b8,
+                transparent: true,
+                opacity: 0.25,
+            });
             const cp = new THREE.Mesh(cpGeo, cpMat);
             cp.position.copy(cpPos);
             cp.rotation.y = bsRotY;
             dynamicGroup.add(cp);
             const cpEdge = new THREE.EdgesGeometry(cpGeo);
-            const cpLine = new THREE.LineSegments(cpEdge, new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true,
-                opacity: 0.15 }));
+            const cpLine = new THREE.LineSegments(cpEdge, new THREE.LineBasicMaterial({
+                color: 0x8b5cf6,
+                transparent: true,
+                opacity: 0.15,
+            }));
             cpLine.position.copy(cpPos);
             cpLine.rotation.y = bsRotY;
             dynamicGroup.add(cpLine);
@@ -655,15 +683,22 @@
             // ---- 4. M2静镜 ----
             const mirrorSize = 1.6;
             const m2Geo = new THREE.PlaneGeometry(mirrorSize, mirrorSize);
-            const m2Mat = new THREE.MeshPhysicalMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1, side: THREE
-                    .DoubleSide });
+            const m2Mat = new THREE.MeshPhysicalMaterial({
+                color: 0xe2e8f0,
+                metalness: 0.9,
+                roughness: 0.1,
+                side: THREE.DoubleSide,
+            });
             const m2 = new THREE.Mesh(m2Geo, m2Mat);
             m2.position.copy(m2Pos);
             m2.rotation.y = Math.PI / 2;
             dynamicGroup.add(m2);
             const m2Edge = new THREE.EdgesGeometry(m2Geo);
-            const m2Line = new THREE.LineSegments(m2Edge, new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true,
-                opacity: 0.3 }));
+            const m2Line = new THREE.LineSegments(m2Edge, new THREE.LineBasicMaterial({
+                color: 0x8b5cf6,
+                transparent: true,
+                opacity: 0.3,
+            }));
             m2Line.position.copy(m2Pos);
             m2Line.rotation.y = Math.PI / 2;
             dynamicGroup.add(m2Line);
@@ -673,14 +708,21 @@
 
             // ---- 5. M1动镜 ----
             const m1Geo = new THREE.PlaneGeometry(mirrorSize, mirrorSize);
-            const m1Mat = new THREE.MeshPhysicalMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 });
+            const m1Mat = new THREE.MeshPhysicalMaterial({
+                color: 0xe2e8f0,
+                metalness: 0.9,
+                roughness: 0.1,
+            });
             const m1 = new THREE.Mesh(m1Geo, m1Mat);
             m1.position.copy(m1Pos);
             m1.rotation.y = angleRad;
             dynamicGroup.add(m1);
             const m1Edge = new THREE.EdgesGeometry(m1Geo);
-            const m1Line = new THREE.LineSegments(m1Edge, new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true,
-                opacity: 0.3 }));
+            const m1Line = new THREE.LineSegments(m1Edge, new THREE.LineBasicMaterial({
+                color: 0x8b5cf6,
+                transparent: true,
+                opacity: 0.3,
+            }));
             m1Line.position.copy(m1Pos);
             m1Line.rotation.y = angleRad;
             dynamicGroup.add(m1Line);
@@ -689,7 +731,11 @@
             labelGroup.add(labelM1);
 
             // ---- 6. 辅助半透明光线 ----
-            const helperMat = new THREE.LineBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.08 });
+            const helperMat = new THREE.LineBasicMaterial({
+                color: 0xf59e0b,
+                transparent: true,
+                opacity: 0.08,
+            });
             const pts1 = [new THREE.Vector3(-3.5, 0.4, 0), new THREE.Vector3(-0.3, 0.4, 0)];
             dynamicGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts1), helperMat));
             const pts2 = [new THREE.Vector3(0, 0.4, -0.3), new THREE.Vector3(0, 0.4, m1Z + 0.3)];
@@ -699,15 +745,25 @@
             const pts4 = [new THREE.Vector3(cpPos.x + 0.1, 0.4, 0), new THREE.Vector3(m2Pos.x - 0.1, 0.4, 0)];
             dynamicGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts4), helperMat));
 
-            // ---- 7. 眼睛（带从分束点射入的光线） ----
+            // ---- 7. 眼睛 ----
             if (showEye) {
                 const eyeGeo = new THREE.SphereGeometry(0.28, 24, 24);
-                const eyeMat = new THREE.MeshPhysicalMaterial({ color: 0xf59e0b, emissive: 0xfbbf24, emissiveIntensity: 0.15 });
+                const eyeMat = new THREE.MeshPhysicalMaterial({
+                    color: 0xf59e0b,
+                    emissive: 0xfbbf24,
+                    emissiveIntensity: 0.15,
+                });
                 const eyeMesh = new THREE.Mesh(eyeGeo, eyeMat);
                 eyeMesh.position.copy(eyePos);
                 dynamicGroup.add(eyeMesh);
-                const eyeGlow = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfbbf24,
-                    transparent: true, opacity: 0.06 }));
+                const eyeGlow = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.5, 16, 16),
+                    new THREE.MeshBasicMaterial({
+                        color: 0xfbbf24,
+                        transparent: true,
+                        opacity: 0.06,
+                    })
+                );
                 eyeGlow.position.copy(eyePos);
                 dynamicGroup.add(eyeGlow);
                 const labelEye = createLabel('👁 眼睛', '#f59e0b', '16px');
@@ -724,7 +780,7 @@
             patternInfoLocal.textContent = `定域 · ${modeName} 干涉`;
         }
 
-        // 更新左侧图样（定域）
+        // 更新左侧图样（定域）- 调整眼睛位置影响参数
         function updatePatternLocal(eyePos, m1z, angle) {
             const rect = patternAreaLocal.getBoundingClientRect();
             const w = Math.min(rect.width, rect.height);
@@ -740,12 +796,12 @@
 
             const isEqualInclination = Math.abs(angle) < 0.0005;
             const lambda_m = 0.6328;
-            const delta = (m1z - 3.0) * 2.5;
 
             const imageData = ctx.createImageData(w, w);
             const data = imageData.data;
 
-            const ex = eyePos.x * 0.05;
+            // 眼睛位置参数（归一化到合理范围）
+            const ex = eyePos.x * 0.05; // 范围约 -0.3 ~ 0.3
             const ey = eyePos.y * 0.05;
             const ez = eyePos.z * 0.05;
 
@@ -757,22 +813,37 @@
                     const v = (py - w / 2) / (w / 2);
                     let intensity = 0.5;
                     if (isEqualInclination) {
+                        // 等倾：同心圆环，不受眼睛位置影响
+                        const delta = (m1z - 3.0) * 2.5;
                         const theta = Math.sqrt(u * u + v * v) * scale;
                         const phase = 2 * Math.PI * delta / lambda_m * Math.cos(theta);
                         intensity = 0.5 + 0.5 * Math.cos(phase);
-                        intensity *= Math.exp(-(u*u + v*v) * 0.4);
+                        intensity *= Math.exp(-(u * u + v * v) * 0.4);
                     } else {
+                        // 等厚：眼睛位置影响条纹
                         const k = angle * 10000;
+                        // 基础相位平移（与 M1Z 相关）
                         const m1zPhase = (m1z - 3.0) * 40.0;
-                        const shiftX = ex * 0.3;
-                        const shiftY = ey * 0.3;
-                        const bend = 0.3 + ex * 0.5;
-                        const scaleZ = 1 + ez * 0.2;
-                        const xEff = (u - shiftX) * (1 + bend * v * v) * scaleZ + v * 0.1;
+                        // 弯曲项：由 M1Z 决定方向，眼睛左右（ex）调节弯曲强度
+                        const bendFactor = (m1z - 3.0) * 2.5;
+                        // 眼睛左右移动对弯曲的贡献（增大系数使弯曲变化明显）
+                        const eyeBend = ex * 2.0; // 原来0.5，增大到2.0
+                        const totalBend = bendFactor + eyeBend;
+                        // 上下移动：影响Y平移
+                        const shiftY = ey * 0.8; // 增大系数使平移明显
+                        // 左右移动：影响X平移，同时前后移动也影响X平移
+                        const shiftX = ex * 0.8 + ez * 0.4; // 前后伴随平移
+                        // 前后移动：影响间距（scaleZ），近疏远密
+                        const scaleZ = 1 + ez * 0.6; // 增大系数使间距变化明显
+                        // 弯曲使用 (v - 0.5)^2 使整体弯曲方向一致
+                        const vOffset = 0.5;
+                        const bendTerm = (v - vOffset) * (v - vOffset);
+                        // 坐标变换
+                        const xEff = (u - shiftX) + totalBend * bendTerm;
                         const yEff = (v - shiftY) * scaleZ;
                         const phase = 2 * Math.PI * (xEff * k + m1zPhase);
                         intensity = 0.5 + 0.5 * Math.cos(phase);
-                        intensity *= Math.exp(-(u*u + v*v) * 0.25);
+                        intensity *= Math.exp(-(u * u + v * v) * 0.25);
                     }
                     const val = Math.max(0, Math.min(1, intensity));
                     const idx = (py * w + px) * 4;
@@ -794,7 +865,7 @@
         // ===== 切换逻辑 =====
         function switchTab(tab) {
             currentTab = tab;
-            tabBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+            tabBtns.forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === tab));
             if (tab === 'nonlocal') {
                 panelNonlocal.style.display = 'block';
                 panelLocal.style.display = 'none';
@@ -809,16 +880,18 @@
         }
 
         // 事件绑定
-        tabBtns.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+        tabBtns.forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
 
         // 非定域控件
-        const nonlocalSliders = [sliderD, sliderWavelength, sliderSourceRadius, sliderScreenSize,
+        const nonlocalSliders = [
+            sliderD, sliderWavelength, sliderSourceRadius, sliderScreenSize,
             sliderScreenX, sliderScreenY, sliderScreenZ,
-            sliderScreenRX, sliderScreenRY, sliderScreenRZ
+            sliderScreenRX, sliderScreenRY, sliderScreenRZ,
         ];
-        const nonlocalVals = [valD, valWavelength, valSourceRadius, valScreenSize,
+        const nonlocalVals = [
+            valD, valWavelength, valSourceRadius, valScreenSize,
             valScreenX, valScreenY, valScreenZ,
-            valScreenRX, valScreenRY, valScreenRZ
+            valScreenRX, valScreenRY, valScreenRZ,
         ];
         nonlocalSliders.forEach((slider, idx) => {
             slider.addEventListener('input', () => {
@@ -827,8 +900,12 @@
                 if (currentTab === 'nonlocal') buildNonlocalScene();
             });
         });
-        chkShowScreen.addEventListener('change', () => { if (currentTab === 'nonlocal') buildNonlocalScene(); });
-        chkShowHyperboloid.addEventListener('change', () => { if (currentTab === 'nonlocal') buildNonlocalScene(); });
+        chkShowScreen.addEventListener('change', () => {
+            if (currentTab === 'nonlocal') buildNonlocalScene();
+        });
+        chkShowHyperboloid.addEventListener('change', () => {
+            if (currentTab === 'nonlocal') buildNonlocalScene();
+        });
 
         // 定域控件
         const localSliders = [sliderEyeX, sliderEyeY, sliderEyeZ, sliderM1Z, sliderAngle];
@@ -840,7 +917,9 @@
                 if (currentTab === 'local') buildLocalScene();
             });
         });
-        chkShowEye.addEventListener('change', () => { if (currentTab === 'local') buildLocalScene(); });
+        chkShowEye.addEventListener('change', () => {
+            if (currentTab === 'local') buildLocalScene();
+        });
 
         // 窗口resize
         function resizeRenderer() {
@@ -853,8 +932,11 @@
             if (currentTab === 'nonlocal') {
                 // 非定域无左侧图样
             } else {
-                const eyePos = new THREE.Vector3(parseFloat(sliderEyeX.value), parseFloat(sliderEyeY.value), parseFloat(
-                    sliderEyeZ.value));
+                const eyePos = new THREE.Vector3(
+                    parseFloat(sliderEyeX.value),
+                    parseFloat(sliderEyeY.value),
+                    parseFloat(sliderEyeZ.value)
+                );
                 const m1z = parseFloat(sliderM1Z.value);
                 const angle = parseFloat(sliderAngle.value) * 1e-3;
                 updatePatternLocal(eyePos, m1z, angle);
@@ -883,8 +965,11 @@
                 const lambda = parseFloat(sliderWavelength.value) * 1e-9;
                 const s1 = new THREE.Vector3(-d / 2, 0, 0);
                 const s2 = new THREE.Vector3(d / 2, 0, 0);
-                const pos = new THREE.Vector3(parseFloat(sliderScreenX.value), parseFloat(sliderScreenY.value), parseFloat(
-                    sliderScreenZ.value));
+                const pos = new THREE.Vector3(
+                    parseFloat(sliderScreenX.value),
+                    parseFloat(sliderScreenY.value),
+                    parseFloat(sliderScreenZ.value)
+                );
                 const rot = new THREE.Euler(
                     parseFloat(sliderScreenRX.value) * Math.PI / 180,
                     parseFloat(sliderScreenRY.value) * Math.PI / 180,
@@ -897,6 +982,7 @@
                 const texSize = window.__screenTexSize;
                 drawInterferencePattern(ctx, texSize, texSize, s1, s2, lambda, pos, quat, size, true);
                 if (screenTexture) screenTexture.needsUpdate = true;
+                // 非定域不再更新左侧图样（已移除）
             }
         }, 150);
 
