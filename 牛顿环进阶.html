@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>牛顿环干涉仿真实验 | 黑色背景 | 间隙0~10mm | 受压形变</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Microsoft YaHei', 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
+            background: #0a0a0a;
+            display: flex;
+            height: 100vh;
+        }
+        #sidebar {
+            width: 320px;
+            min-width: 320px;
+            background: rgba(20, 22, 30, 0.95);
+            backdrop-filter: blur(8px);
+            border-right: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 2px 0 12px rgba(0,0,0,0.5);
+            padding: 16px 18px;
+            overflow-y: auto;
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: transform 0.3s ease, width 0.3s ease;
+            height: 100vh;
+            color: #e0e0e0;
+        }
+        #sidebar.collapsed {
+            transform: translateX(-100%);
+            width: 0;
+            min-width: 0;
+            padding: 0;
+            overflow: hidden;
+            border: none;
+        }
+        #sidebar-toggle {
+            position: fixed;
+            left: 10px;
+            bottom: 20px;
+            z-index: 40;
+            background: rgba(30,32,40,0.9);
+            border: 1px solid #555;
+            border-radius: 30px;
+            padding: 6px 14px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            color: #88aaff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            transition: 0.2s;
+            pointer-events: auto;
+        }
+        #sidebar-toggle:hover {
+            background: #3a4a5a;
+        }
+        #sidebar h2 {
+            margin: 0 0 6px 0;
+            font-size: 18px;
+            color: #ffcc88;
+            border-bottom: 2px solid #3a6ea5;
+            padding-bottom: 6px;
+        }
+        .section {
+            background: rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 12px 14px;
+            margin-bottom: 6px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .section-title {
+            font-weight: bold;
+            font-size: 15px;
+            color: #ddd;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+        .control-group label {
+            font-size: 12px;
+            color: #bbb;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+        }
+        .control-group label span {
+            font-family: monospace;
+            background: rgba(255,255,255,0.1);
+            padding: 0 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: #ffcc88;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            background: #444;
+            accent-color: #3a6ea5;
+            height: 4px;
+            border-radius: 4px;
+        }
+        select {
+            padding: 4px 8px;
+            border-radius: 20px;
+            border: 1px solid #555;
+            background: #222;
+            color: #ddd;
+            font-size: 13px;
+            width: 100%;
+        }
+        .mode-buttons {
+            display: flex;
+            gap: 10px;
+            margin: 8px 0 4px;
+        }
+        .mode-buttons button {
+            flex: 1;
+            background: #2a2a3a;
+            border: 1px solid #555;
+            color: #ccc;
+            padding: 4px 0;
+            border-radius: 28px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+        .mode-buttons button.active {
+            background: #3a6ea5;
+            border-color: #3a6ea5;
+            color: white;
+            box-shadow: 0 0 5px rgba(58, 110, 165, 0.5);
+        }
+        .note {
+            font-size: 11px;
+            color: #888;
+            margin-top: 4px;
+            background: rgba(255,255,255,0.05);
+            padding: 4px 10px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        #canvas-container {
+            flex: 1;
+            height: 100vh;
+            background: #0a0a0a;
+        }
+        @media (max-width: 700px) {
+            #sidebar { width: 280px; min-width: 280px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h2>🔬 牛顿环仿真</h2>
+        <div class="section">
+            <div class="section-title">📐 基础参数</div>
+            <div class="control-group">
+                <label>曲率半径 R <span id="Rvalue">3.00 m</span></label>
+                <input type="range" id="curvatureRadius" min="0.5" max="10.0" step="0.02" value="3.0">
+            </div>
+            <div class="control-group">
+                <label>波长 λ (单色光) <span id="lambdaValue">546 nm</span></label>
+                <input type="range" id="wavelength" min="400" max="700" step="2" value="546">
+            </div>
+            <div class="control-group">
+                <label>对比度 <span id="intensityVal">1.00</span></label>
+                <input type="range" id="intensity" min="0.5" max="1.3" step="0.01" value="1.0">
+            </div>
+            <div class="control-group">
+                <label>显示缩放倍数 (越大越疏) <span id="spacingVal">20000</span></label>
+                <input type="range" id="spacingScale" min="10000" max="50000" step="1000" value="20000">
+            </div>
+            <div class="mode-buttons">
+                <button id="monoBtn" class="active">单色光</button>
+                <button id="whiteBtn">白光</button>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">⚙️ 进阶实验</div>
+            <div class="control-group">
+                <label>初始间隙 d₀ <span id="gapVal">0.00 mm</span></label>
+                <input type="range" id="initialGap" min="0" max="10.0" step="0.01" value="0">
+            </div>
+            <div class="control-group">
+                <label>透镜受压形变参数 <span id="deformVal">0.00</span></label>
+                <input type="range" id="deform" min="0" max="1.0" step="0.01" value="0">
+            </div>
+            <div class="control-group">
+                <label>介质折射率</label>
+                <select id="refractiveIndex">
+                    <option value="1.000">空气 (1.000)</option>
+                    <option value="1.333">水 (1.333)</option>
+                    <option value="1.470">甘油 (1.470)</option>
+                    <option value="1.500" selected>玻璃 (1.500)</option>
+                    <option value="1.544">二硫化碳 (1.544)</option>
+                    <option value="1.630">重火石玻璃 (1.630)</option>
+                </select>
+            </div>
+            <div class="note">
+                💡 形变参数增大 → 等效曲率半径增大 → 条纹变疏，中心黑斑变大
+            </div>
+        </div>
+    </div>
+    <button id="sidebar-toggle">◀ 隐藏面板</button>
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ========= 固定尺寸 (米) =========
+        const PLATE_SIZE = 2.0;
+        const PLATE_THICK = 0.05;
+        const PLATE_Y = 0.0;
+        const TOP_DIAMETER = 1.5;
+        const TOP_RADIUS = TOP_DIAMETER / 2;
+        
+        const TEXTURE_SIZE = 512;
+        const SS_FACTOR = 4;
+        
+        let currentLensMesh = null;
+        let currentTopDisc = null;
+        let ringTexture = null;
+        
+        // DOM 元素
+        const curvatureSlider = document.getElementById('curvatureRadius');
+        const wavelengthSlider = document.getElementById('wavelength');
+        const intensitySlider = document.getElementById('intensity');
+        const spacingSlider = document.getElementById('spacingScale');
+        const gapSlider = document.getElementById('initialGap');
+        const deformSlider = document.getElementById('deform');
+        const refractiveSelect = document.getElementById('refractiveIndex');
+        const rValueSpan = document.getElementById('Rvalue');
+        const lambdaSpan = document.getElementById('lambdaValue');
+        const intensitySpan = document.getElementById('intensityVal');
+        const spacingSpan = document.getElementById('spacingVal');
+        const gapSpan = document.getElementById('gapVal');
+        const deformSpan = document.getElementById('deformVal');
+        const monoBtn = document.getElementById('monoBtn');
+        const whiteBtn = document.getElementById('whiteBtn');
+        const toggleBtn = document.getElementById('sidebar-toggle');
+        const sidebar = document.getElementById('sidebar');
+        const container = document.getElementById('canvas-container');
+        
+        let curvatureR_m = parseFloat(curvatureSlider.value);
+        let wavelengthNm = parseFloat(wavelengthSlider.value);
+        let contrast = parseFloat(intensitySlider.value);
+        let visualScale = parseFloat(spacingSlider.value);
+        let gap_mm = parseFloat(gapSlider.value);       // 毫米
+        let deform = parseFloat(deformSlider.value);
+        let refractiveIndex = parseFloat(refractiveSelect.value);
+        let colorMode = 'mono';
+        
+        let updateTimeout = null;
+        
+        // 侧边栏折叠
+        let sidebarVisible = true;
+        toggleBtn.addEventListener('click', () => {
+            sidebarVisible = !sidebarVisible;
+            sidebar.classList.toggle('collapsed');
+            toggleBtn.textContent = sidebarVisible ? '◀ 隐藏面板' : '▶ 显示面板';
+        });
+        
+        // 场景 —— 黑色背景
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a0a);
+        
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 50);
+        camera.position.set(3.2, 2.0, 4.2);
+        camera.lookAt(0, 0.5, 0);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+        
+        const orbitControls = new OrbitControls(camera, renderer.domElement);
+        orbitControls.enableDamping = true;
+        orbitControls.dampingFactor = 0.05;
+        orbitControls.enableZoom = true;
+        orbitControls.enablePan = true;
+        orbitControls.target.set(0, 0.5, 0);
+        
+        // 光照 (柔和，适应黑色背景)
+        const ambientLight = new THREE.AmbientLight(0x404060, 0.6);
+        scene.add(ambientLight);
+        const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        mainLight.position.set(1.2, 2.2, 0.8);
+        scene.add(mainLight);
+        const fillLight = new THREE.DirectionalLight(0x88aaff, 0.3);
+        fillLight.position.set(-0.8, 1.0, -1.0);
+        scene.add(fillLight);
+        
+        // 辅助网格 (深色)
+        const gridHelper = new THREE.GridHelper(4.5, 20, 0x444466, 0x222244);
+        gridHelper.position.y = -0.4;
+        gridHelper.material.transparent = true;
+        gridHelper.material.opacity = 0.3;
+        scene.add(gridHelper);
+        
+        // 平板玻璃 (半透明白色)
+        const plateGeo = new THREE.BoxGeometry(PLATE_SIZE, PLATE_THICK, PLATE_SIZE);
+        const plateMat = new THREE.MeshPhysicalMaterial({
+            color: 0xccccdd,
+            metalness: 0.05,
+            roughness: 0.5,
+            transparent: true,
+            opacity: 0.4,
+            side: THREE.DoubleSide
+        });
+        const glassPlate = new THREE.Mesh(plateGeo, plateMat);
+        glassPlate.position.set(0, PLATE_Y, 0);
+        glassPlate.castShadow = true;
+        glassPlate.receiveShadow = false;
+        scene.add(glassPlate);
+        
+        const plateEdges = new THREE.EdgesGeometry(plateGeo);
+        const edgeMat = new THREE.LineBasicMaterial({ color: 0x888899 });
+        const wireframePlate = new THREE.LineSegments(plateEdges, edgeMat);
+        wireframePlate.position.copy(glassPlate.position);
+        scene.add(wireframePlate);
+        
+        // ========= 辅助函数 =========
+        function wavelengthToRGB(wavelengthNm, satBoost = 1.4) {
+            let r, g, b;
+            if (wavelengthNm >= 380 && wavelengthNm < 440) {
+                r = (wavelengthNm - 380) / (440 - 380);
+                g = 0;
+                b = 1;
+            } else if (wavelengthNm >= 440 && wavelengthNm < 490) {
+                r = 0;
+                g = (wavelengthNm - 440) / (490 - 440);
+                b = 1;
+            } else if (wavelengthNm >= 490 && wavelengthNm < 510) {
+                r = 0;
+                g = 1;
+                b = 1 - (wavelengthNm - 490) / (510 - 490);
+            } else if (wavelengthNm >= 510 && wavelengthNm < 580) {
+                r = (wavelengthNm - 510) / (580 - 510);
+                g = 1;
+                b = 0;
+            } else if (wavelengthNm >= 580 && wavelengthNm < 645) {
+                r = 1;
+                g = 1 - (wavelengthNm - 580) / (645 - 580);
+                b = 0;
+            } else if (wavelengthNm >= 645 && wavelengthNm <= 780) {
+                r = 1;
+                g = 0;
+                b = 0;
+            } else {
+                r = 0.7; g = 0.7; b = 0.7;
+            }
+            r = Math.min(1.0, r * satBoost);
+            g = Math.min(1.0, g * satBoost);
+            b = Math.min(1.0, b * satBoost);
+            return { r: r * 255, g: g * 255, b: b * 255 };
+        }
+        
+        // 牛顿环强度（含间隙、折射率、形变），d0 单位为米
+        function newtonIntensity(r_m, lambda_m, R_m, n, d0_m, deform) {
+            if (r_m <= 0) return 0;
+            const R_eff = R_m * (1 + deform);
+            const t = d0_m + r_m * r_m / (2 * R_eff);
+            const phase = 2 * Math.PI * n * t / lambda_m;
+            const sinVal = Math.sin(phase);
+            return sinVal * sinVal;
+        }
+        
+        // 纹理生成
+        function generateAntiAliasedRingTexture(R_m, lambdaNm, maxRadius_m, intensityFactor, visualScaleFactor, mode, n, d0_mm, deform) {
+            if (visualScaleFactor <= 0) {
+                const blankCanvas = document.createElement('canvas');
+                blankCanvas.width = TEXTURE_SIZE;
+                blankCanvas.height = TEXTURE_SIZE;
+                const blankCtx = blankCanvas.getContext('2d');
+                blankCtx.fillStyle = '#000000';
+                blankCtx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+                const texture = new THREE.CanvasTexture(blankCanvas);
+                texture.needsUpdate = true;
+                return texture;
+            }
+            
+            const d0_m = d0_mm * 1e-3;  // 毫米→米
+            const finalSize = TEXTURE_SIZE;
+            const ssSize = finalSize * SS_FACTOR;
+            const canvas = document.createElement('canvas');
+            canvas.width = ssSize;
+            canvas.height = ssSize;
+            const ctx = canvas.getContext('2d', { alpha: false });
+            const imageData = ctx.getImageData(0, 0, ssSize, ssSize);
+            const data = imageData.data;
+            
+            const center = ssSize / 2;
+            const scale = center / maxRadius_m;
+            const effR = Math.max(R_m, 0.01);
+            
+            let monoLambda_m = lambdaNm * 1e-9;
+            let monoColorRGB = null;
+            if (mode === 'mono') {
+                const rgbObj = wavelengthToRGB(lambdaNm, 1.4);
+                monoColorRGB = { r: rgbObj.r, g: rgbObj.g, b: rgbObj.b };
+            }
+            
+            for (let py = 0; py < ssSize; py++) {
+                const dy = (py - center) / scale;
+                const dy2 = dy * dy;
+                const rowOffset = py * ssSize * 4;
+                for (let px = 0; px < ssSize; px++) {
+                    const dx = (px - center) / scale;
+                    const r2 = dx * dx + dy2;
+                    const r = Math.sqrt(r2);
+                    
+                    let finalR = 0, finalG = 0, finalB = 0; // 默认黑色
+                    if (r <= maxRadius_m) {
+                        if (mode === 'mono') {
+                            const lambda_vis = monoLambda_m * visualScaleFactor;
+                            const intensity = newtonIntensity(r, lambda_vis, effR, n, d0_m, deform);
+                            const adj = Math.min(1.0, intensity * intensityFactor);
+                            if (adj > 0.01) {
+                                finalR = monoColorRGB.r * adj;
+                                finalG = monoColorRGB.g * adj;
+                                finalB = monoColorRGB.b * adj;
+                            }
+                        } else {
+                            // 白光模式
+                            const r_int = newtonIntensity(r, 650e-9 * visualScaleFactor, effR, n, d0_m, deform) * intensityFactor;
+                            const g_int = newtonIntensity(r, 550e-9 * visualScaleFactor, effR, n, d0_m, deform) * intensityFactor;
+                            const b_int = newtonIntensity(r, 450e-9 * visualScaleFactor, effR, n, d0_m, deform) * intensityFactor;
+                            if (r_int > 0.01 || g_int > 0.01 || b_int > 0.01) {
+                                finalR = Math.min(255, 255 * Math.min(1.0, r_int));
+                                finalG = Math.min(255, 255 * Math.min(1.0, g_int));
+                                finalB = Math.min(255, 255 * Math.min(1.0, b_int));
+                            }
+                        }
+                    }
+                    const idx = rowOffset + px * 4;
+                    data[idx] = Math.floor(finalR);
+                    data[idx+1] = Math.floor(finalG);
+                    data[idx+2] = Math.floor(finalB);
+                    data[idx+3] = 255;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = finalSize;
+            finalCanvas.height = finalSize;
+            const finalCtx = finalCanvas.getContext('2d');
+            finalCtx.imageSmoothingEnabled = true;
+            finalCtx.imageSmoothingQuality = 'high';
+            finalCtx.drawImage(canvas, 0, 0, ssSize, ssSize, 0, 0, finalSize, finalSize);
+            finalCtx.globalCompositeOperation = 'source-over';
+            finalCtx.filter = 'blur(0.4px)';
+            finalCtx.drawImage(finalCanvas, 0, 0);
+            finalCtx.filter = 'none';
+            
+            const texture = new THREE.CanvasTexture(finalCanvas);
+            texture.needsUpdate = true;
+            texture.wrapS = THREE.ClampToEdgeWrapping;
+            texture.wrapT = THREE.ClampToEdgeWrapping;
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            return texture;
+        }
+        
+        // ========= 几何体 =========
+        function createTruncatedHemisphere(R, radialSegments = 140, heightSegments = 100) {
+            if (R < TOP_RADIUS + 0.001) R = TOP_RADIUS + 0.001;
+            const cutY_original = -Math.sqrt(R * R - TOP_RADIUS * TOP_RADIUS);
+            const shiftY = R;
+            const vertices = [];
+            const indices = [];
+            const normals = [];
+            
+            const theta_top = Math.acos(cutY_original / R);
+            const theta_bottom = Math.PI;
+            const latSteps = heightSegments;
+            const lonSteps = radialSegments;
+            
+            const vertexGrid = [];
+            for (let i = 0; i <= latSteps; i++) {
+                const t = i / latSteps;
+                const theta = theta_top + t * (theta_bottom - theta_top);
+                const y_original = R * Math.cos(theta);
+                const y_world = y_original + shiftY;
+                const r_lat = R * Math.sin(theta);
+                const row = [];
+                for (let j = 0; j <= lonSteps; j++) {
+                    const phi = (j / lonSteps) * Math.PI * 2;
+                    const x = r_lat * Math.cos(phi);
+                    const z = r_lat * Math.sin(phi);
+                    vertices.push(x, y_world, z);
+                    const nx = x;
+                    const ny = y_original;
+                    const nz = z;
+                    const len = Math.hypot(nx, ny, nz);
+                    normals.push(nx / len, ny / len, nz / len);
+                    row.push(i * (lonSteps + 1) + j);
+                }
+                vertexGrid.push(row);
+            }
+            
+            for (let i = 0; i < latSteps; i++) {
+                for (let j = 0; j < lonSteps; j++) {
+                    const a = vertexGrid[i][j];
+                    const b = vertexGrid[i+1][j];
+                    const c = vertexGrid[i+1][j+1];
+                    const d = vertexGrid[i][j+1];
+                    indices.push(a, b, c);
+                    indices.push(a, c, d);
+                }
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+            geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
+            geometry.setIndex(indices);
+            geometry.computeBoundingSphere();
+            return geometry;
+        }
+        
+        function rebuildLensAndDisc() {
+            let R = curvatureR_m;
+            if (R < TOP_RADIUS + 0.01) {
+                R = TOP_RADIUS + 0.01;
+                curvatureSlider.value = R;
+                curvatureR_m = R;
+            }
+            const cutY_original = -Math.sqrt(R * R - TOP_RADIUS * TOP_RADIUS);
+            const shiftY = R;
+            const topY_world = cutY_original + shiftY;
+            
+            const lensGeo = createTruncatedHemisphere(R, 160, 110);
+            const lensMat = new THREE.MeshPhysicalMaterial({
+                color: 0xccccdd,
+                metalness: 0.05,
+                roughness: 0.7,
+                transparent: true,
+                opacity: 0.55,
+                side: THREE.DoubleSide
+            });
+            const lensMesh = new THREE.Mesh(lensGeo, lensMat);
+            lensMesh.castShadow = true;
+            lensMesh.position.y = 0;
+            
+            if (currentLensMesh) {
+                scene.remove(currentLensMesh);
+                if (currentLensMesh.geometry) currentLensMesh.geometry.dispose();
+                if (currentLensMesh.material) currentLensMesh.material.dispose();
+            }
+            scene.add(lensMesh);
+            currentLensMesh = lensMesh;
+            
+            if (currentTopDisc) scene.remove(currentTopDisc);
+            const discGeometry = new THREE.CircleGeometry(TOP_RADIUS, 240);
+            const discMaterial = new THREE.MeshStandardMaterial({
+                map: ringTexture,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.98,
+                roughness: 0.2,
+                metalness: 0.02
+            });
+            const topDisc = new THREE.Mesh(discGeometry, discMaterial);
+            topDisc.rotation.x = -Math.PI / 2;
+            topDisc.position.set(0, topY_world + 0.002, 0);
+            scene.add(topDisc);
+            currentTopDisc = topDisc;
+        }
+        
+        function refreshTexture() {
+            if (!currentTopDisc) return;
+            const newTexture = generateAntiAliasedRingTexture(
+                curvatureR_m, wavelengthNm, TOP_RADIUS, contrast, visualScale, colorMode,
+                refractiveIndex, gap_mm, deform
+            );
+            if (ringTexture) ringTexture.dispose();
+            ringTexture = newTexture;
+            currentTopDisc.material.map = ringTexture;
+            currentTopDisc.material.needsUpdate = true;
+        }
+        
+        function scheduleUpdate() {
+            if (updateTimeout) clearTimeout(updateTimeout);
+            updateTimeout = setTimeout(() => {
+                updateAll();
+                updateTimeout = null;
+            }, 20);
+        }
+        
+        function updateAll() {
+            curvatureR_m = parseFloat(curvatureSlider.value);
+            wavelengthNm = parseFloat(wavelengthSlider.value);
+            contrast = parseFloat(intensitySlider.value);
+            visualScale = parseFloat(spacingSlider.value);
+            gap_mm = parseFloat(gapSlider.value);
+            deform = parseFloat(deformSlider.value);
+            refractiveIndex = parseFloat(refractiveSelect.value);
+            
+            if (curvatureR_m < TOP_RADIUS + 0.01) {
+                curvatureR_m = TOP_RADIUS + 0.01;
+                curvatureSlider.value = curvatureR_m;
+            }
+            rValueSpan.innerText = curvatureR_m.toFixed(2) + " m";
+            lambdaSpan.innerText = wavelengthNm + " nm";
+            intensitySpan.innerText = contrast.toFixed(2);
+            spacingSpan.innerText = Math.round(visualScale);
+            gapSpan.innerText = gap_mm.toFixed(2) + " mm";
+            deformSpan.innerText = deform.toFixed(2);
+            
+            rebuildLensAndDisc();
+            refreshTexture();
+        }
+        
+        // 绑定事件
+        curvatureSlider.addEventListener('input', () => {
+            curvatureR_m = parseFloat(curvatureSlider.value);
+            rValueSpan.innerText = curvatureR_m.toFixed(2) + " m";
+            scheduleUpdate();
+        });
+        wavelengthSlider.addEventListener('input', () => {
+            wavelengthNm = parseFloat(wavelengthSlider.value);
+            lambdaSpan.innerText = wavelengthNm + " nm";
+            scheduleUpdate();
+        });
+        intensitySlider.addEventListener('input', () => {
+            contrast = parseFloat(intensitySlider.value);
+            intensitySpan.innerText = contrast.toFixed(2);
+            scheduleUpdate();
+        });
+        spacingSlider.addEventListener('input', () => {
+            visualScale = parseFloat(spacingSlider.value);
+            spacingSpan.innerText = Math.round(visualScale);
+            scheduleUpdate();
+        });
+        gapSlider.addEventListener('input', () => {
+            gap_mm = parseFloat(gapSlider.value);
+            gapSpan.innerText = gap_mm.toFixed(2) + " mm";
+            scheduleUpdate();
+        });
+        deformSlider.addEventListener('input', () => {
+            deform = parseFloat(deformSlider.value);
+            deformSpan.innerText = deform.toFixed(2);
+            scheduleUpdate();
+        });
+        refractiveSelect.addEventListener('change', () => {
+            refractiveIndex = parseFloat(refractiveSelect.value);
+            scheduleUpdate();
+        });
+        
+        function setMode(mode) {
+            colorMode = mode;
+            if (mode === 'mono') {
+                monoBtn.classList.add('active');
+                whiteBtn.classList.remove('active');
+                wavelengthSlider.disabled = false;
+                scheduleUpdate();
+            } else {
+                whiteBtn.classList.add('active');
+                monoBtn.classList.remove('active');
+                wavelengthSlider.disabled = true;
+                scheduleUpdate();
+            }
+        }
+        monoBtn.addEventListener('click', () => setMode('mono'));
+        whiteBtn.addEventListener('click', () => setMode('white'));
+        
+        // 星空装饰（极淡）
+        const starGeo = new THREE.BufferGeometry();
+        const starCount = 200;
+        const starPositions = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+            starPositions[i*3] = (Math.random() - 0.5) * 50;
+            starPositions[i*3+1] = (Math.random() - 0.5) * 20 + 0.5;
+            starPositions[i*3+2] = (Math.random() - 0.5) * 40 - 20;
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0x446688, size: 0.03, transparent: true, opacity: 0.3 });
+        const stars = new THREE.Points(starGeo, starMat);
+        scene.add(stars);
+        
+        let time = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.005;
+            stars.rotation.y = Math.sin(time * 0.08) * 0.02;
+            stars.rotation.x = Math.sin(time * 0.05) * 0.01;
+            orbitControls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // 窗口自适应
+        function resizeRenderer() {
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+        window.addEventListener('resize', resizeRenderer);
+        const observer = new ResizeObserver(() => resizeRenderer());
+        observer.observe(container);
+        
+        // 初始化
+        ringTexture = generateAntiAliasedRingTexture(curvatureR_m, wavelengthNm, TOP_RADIUS, contrast, visualScale, colorMode, refractiveIndex, gap_mm, deform);
+        rebuildLensAndDisc();
+        animate();
+        resizeRenderer();
+        
+        console.log('牛顿环仿真 | 黑色背景 | 间隙0~10mm | 受压形变0~1');
+    </script>
+</body>
+</html>
