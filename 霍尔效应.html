@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>霍尔效应 & 量子霍尔效应 教学演示</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', 'Microsoft YaHei', monospace; background: #ffffff; overflow: hidden; height: 100vh; display: flex; }
+
+        #controlPanel {
+            width: 280px; min-width: 280px; height: 100vh; background: #f8f9fc;
+            padding: 0 16px 20px 16px; overflow-y: auto; z-index: 10;
+            display: flex; flex-direction: column; border-right: 1px solid #e8e8e8;
+        }
+
+        .tab-bar {
+            display: flex; border-bottom: 2px solid #e0e0e0; margin-bottom: 16px; flex-shrink: 0;
+            background: #f8f9fc; position: sticky; top: 0; z-index: 5; padding-top: 8px;
+        }
+        .tab-btn {
+            flex: 1; padding: 10px 0 8px 0; background: transparent; border: none;
+            font-size: 14px; font-weight: 600; color: #888; cursor: pointer;
+            border-bottom: 3px solid transparent; transition: 0.2s;
+            text-align: center; letter-spacing: 0.5px;
+        }
+        .tab-btn.active { color: #1a1a2e; border-bottom-color: #3a86ff; }
+        .tab-btn.anomalous.active { border-bottom-color: #d4880f; }
+        .tab-btn.quantum.active { border-bottom-color: #9b59b6; }
+        .tab-btn:hover { color: #1a1a2e; }
+
+        .tab-content { display: none; flex-direction: column; gap: 12px; }
+        .tab-content.active { display: flex; }
+
+        .ctrl-group {
+            background: #ffffff; border-radius: 12px; padding: 12px 14px;
+            border: 1px solid #eaeef5; margin-bottom: 12px;
+        }
+        .ctrl-group label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 500; color: #222; margin-bottom: 4px; }
+        .ctrl-group label .value { font-weight: 600; font-family: 'Consolas', monospace; min-width: 60px; text-align: right; transition: color 0.3s; }
+        .ctrl-group input[type="range"] {
+            width: 100%; margin: 4px 0 2px 0;
+            -webkit-appearance: none; appearance: none;
+            height: 5px; border-radius: 4px;
+            background: #d0d7e6; outline: none;
+        }
+        .ctrl-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 18px; height: 18px; border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #ffffff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .ctrl-group input[type="range"]::-moz-range-thumb {
+            width: 18px; height: 18px; border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #ffffff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .normal-mode input[type="range"]::-webkit-slider-thumb { background: #3a86ff; }
+        .normal-mode input[type="range"]::-moz-range-thumb { background: #3a86ff; }
+        .anomalous-mode input[type="range"]::-webkit-slider-thumb { background: #d4880f; }
+        .anomalous-mode input[type="range"]::-moz-range-thumb { background: #d4880f; }
+        .quantum-mode input[type="range"]::-webkit-slider-thumb { background: #9b59b6; }
+        .quantum-mode input[type="range"]::-moz-range-thumb { background: #9b59b6; }
+
+        .ctrl-desc { font-size: 11px; color: #888; margin-top: 2px; }
+        .ctrl-group .flex-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .ctrl-group .flex-row span { font-size: 12px; color: #444; }
+
+        .voltage-panel {
+            border-radius: 12px; padding: 10px 14px; border-left: 3px solid #ffaa44;
+            transition: background 0.3s, border-color 0.3s; margin-bottom: 12px;
+        }
+        .voltage-panel label { font-size: 12px; font-weight: 500; color: #222; }
+        .voltage-panel span.big { font-size: 18px; font-weight: bold; transition: color 0.3s; }
+        .voltage-panel .sub { font-size: 11px; color: #555; margin-top: 2px; }
+        .formula-box {
+            background: rgba(255,255,255,0.6); border-radius: 8px; padding: 6px 10px; margin-top: 6px;
+            font-size: 12px; border: 1px solid #e0e8f0; color: #1a1a2e; line-height: 1.7;
+            transition: border-color 0.3s, background 0.3s;
+        }
+        .formula-box .math { font-family: 'Times New Roman', serif; font-style: italic; font-weight: 600; transition: color 0.3s; }
+        .explanation-box {
+            margin-top: 6px; padding: 6px 10px; border-radius: 6px; font-size: 11px;
+            line-height: 1.6; color: #444; border: 1px solid #e0e0e0;
+        }
+
+        .btn-reset {
+            color: #fff; border: none; border-radius: 30px; padding: 8px 0; font-size: 13px;
+            font-weight: 600; cursor: pointer; transition: 0.2s; width: 100%; letter-spacing: 0.3px;
+        }
+        .btn-reset:hover { transform: translateY(-1px); }
+        .btn-outline { background: transparent; border: 1px solid #d0d7e6; color: #333; padding: 4px 14px; border-radius: 30px; cursor: pointer; font-size: 11px; transition: 0.15s; }
+        .btn-outline:hover { background: #eef3fc; }
+
+        #controlPanel::-webkit-scrollbar { width: 4px; }
+        #controlPanel::-webkit-scrollbar-track { background: #f0f2f5; }
+        #controlPanel::-webkit-scrollbar-thumb { background: #c0c8d8; border-radius: 10px; }
+
+        #sceneContainer { flex: 1; height: 100vh; background: #ffffff; position: relative; overflow: hidden; }
+        #sceneContainer canvas { display: block; width: 100% !important; height: 100% !important; }
+        .axis-container { position: absolute; top: 20px; right: 20px; width: 140px; height: 140px; z-index: 25; pointer-events: none; background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); border-radius: 20px; border: 1px solid rgba(0,0,0,0.08); overflow: hidden; }
+        .info-text { position: absolute; bottom: 18px; left: 20px; color: #888; font-size: 11px; background: rgba(255,255,255,0.85); backdrop-filter: blur(4px); padding: 4px 16px; border-radius: 30px; border: 1px solid #e8e8e8; pointer-events: none; z-index: 15; }
+
+        @media (max-width: 720px) { #controlPanel { width: 220px; min-width: 220px; padding: 0 12px 16px; } .tab-btn { font-size: 12px; padding: 8px 0; } .axis-container { width: 110px; height: 110px; } }
+        @media (max-width: 540px) { body { flex-direction: column; } #controlPanel { width: 100%; min-width: unset; height: 44vh; border-right: none; border-bottom: 1px solid #e8e8e8; } #sceneContainer { height: 56vh; } .axis-container { width: 90px; height: 90px; } }
+    </style>
+</head>
+<body>
+
+    <div id="controlPanel">
+        <!-- 顶部标签栏 -->
+        <div class="tab-bar">
+            <button id="tabNormal" class="tab-btn active">正常霍尔效应</button>
+            <button id="tabAnomalous" class="tab-btn anomalous">反常霍尔效应</button>
+            <button id="tabQuantum" class="tab-btn quantum">量子霍尔效应</button>
+        </div>
+
+        <!-- 内容区域：三个独立 TabPane -->
+        <div id="contentArea" style="flex:1; display:flex; flex-direction:column;">
+
+            <!-- ===== TabPane: 正常霍尔效应 ===== -->
+            <div id="tabNormalContent" class="tab-content active">
+                <div id="titleAreaNormal">
+                    <h1 style="font-size:18px; font-weight:600; color:#1a1a2e; border-bottom:2px solid #3a86ff; padding-bottom:8px;">
+                        ⚡ 霍尔效应 <small style="font-size:12px; font-weight:400; color:#666;">N型砷化镓</small>
+                    </h1>
+                </div>
+
+                <div class="ctrl-group" style="border-left: 3px solid #3a86ff;">
+                    <div style="font-size:14px; font-weight:600; color:#1a2a4a;">🔘 N型半导体 (电子导电)</div>
+                    <div class="ctrl-desc">电子运动方向与 I<sub>s</sub> 相反</div>
+                    <div style="margin-top:4px; font-size:12px; background:#eef3fc; padding:4px 8px; border-radius:6px; color:#1a2a4a;">
+                        <strong>载流子浓度</strong> n = 1.87 × 10<sup>17</sup> m<sup>−3</sup> (砷化镓)
+                    </div>
+                </div>
+
+                <div class="ctrl-group normal-mode">
+                    <label>⚡ 工作电流 I<sub>s</sub> (mA) <span class="value" id="nCurrVal">+1.00</span></label>
+                    <input type="range" id="nCurrentMag" min="-3" max="3" step="0.01" value="1.0">
+                    <div class="flex-row">
+                        <span style="font-size:11px; color:#888;">负值表示方向相反</span>
+                        <span style="font-size:11px; color:#888;">大小: <span id="nCurrMagDisplay">1.00</span> mA</span>
+                    </div>
+                </div>
+
+                <div class="ctrl-group normal-mode">
+                    <label>🧲 磁场 B (mT) <span class="value" id="nMagVal">+1.00</span></label>
+                    <input type="range" id="nMagFieldMag" min="-10" max="10" step="0.01" value="1.0">
+                    <div class="flex-row">
+                        <span style="font-size:11px; color:#888;">负值表示方向相反</span>
+                        <span style="font-size:11px; color:#888;">大小: <span id="nMagMagDisplay">1.00</span> mT</span>
+                    </div>
+                </div>
+
+                <div class="ctrl-group">
+                    <label>📐 尺寸 (mm)</label>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:50px;"><span style="font-size:10px;">L</span><input type="range" id="nSizeL" min="0.8" max="2.5" step="0.02" value="2.0" style="width:100%;"></div>
+                        <div style="flex:1; min-width:50px;"><span style="font-size:10px;">b</span><input type="range" id="nSizeB" min="0.5" max="1.8" step="0.02" value="1.0" style="width:100%;"></div>
+                        <div style="flex:1; min-width:50px;"><span style="font-size:10px;">d</span><input type="range" id="nSizeD" min="0.1" max="1.5" step="0.01" value="0.8" style="width:100%;"></div>
+                    </div>
+                    <div id="nSizeDisplay" style="font-size:11px; color:#666;">L:2.00  b:1.00  d:0.80 mm</div>
+                </div>
+
+                <div class="voltage-panel" style="background:#f0f4fe; border-left-color:#ffaa44;">
+                    <label>📊 霍尔电压 V<sub>H</sub></label>
+                    <div><span class="big" id="nVhValue" style="color:#ffaa44;">0.00</span> <span style="font-size:12px; color:#888;">mV</span></div>
+                    <div id="nVhPolarity" class="sub">极性: 无霍尔电压</div>
+                    <div id="nAccumulationLevel" class="sub" style="color:#666;">电荷积累: 极少 ⚪</div>
+                    <div class="formula-box">
+                        <div><span class="math">V<sub>H</sub> = K<sub>H</sub> · I<sub>s</sub> · B</span></div>
+                        <div><span class="math">K<sub>H</sub> = 1 / (n · q · d)</span> &nbsp;→&nbsp; <span class="math">V<sub>H</sub> ∝ I<sub>s</sub> · B / d</span></div>
+                        <div style="font-size:11px; color:#555; margin-top:2px;">
+                            ✅ 与电流、磁场成正比，与厚度 <b>d</b> 成反比<br>
+                            <span style="font-size:10px;">n = 1.87×10<sup>17</sup> m<sup>−3</sup>, q = 1.6×10<sup>−19</sup> C</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== TabPane: 反常霍尔效应（载流子浓度已移除） ===== -->
+            <div id="tabAnomalousContent" class="tab-content">
+                <div id="titleAreaAnomalous">
+                    <h1 style="font-size:18px; font-weight:600; color:#1a1a2e; border-bottom:2px solid #d4880f; padding-bottom:8px;">
+                        ⚡ 反常霍尔效应 <small style="font-size:12px; font-weight:400; color:#666;">N型砷化镓 (铁磁)</small>
+                    </h1>
+                </div>
+
+                <div class="ctrl-group" style="border-left: 3px solid #d4880f;">
+                    <div style="font-size:14px; font-weight:600; color:#1a2a4a;">🔘 铁磁材料 (N型)</div>
+                    <div class="ctrl-desc">自发磁化产生霍尔电压</div>
+                    <!-- 载流子浓度已移除 -->
+                </div>
+
+                <div class="ctrl-group anomalous-mode">
+                    <label>⚡ 工作电流 I<sub>s</sub> (mA) <span class="value" id="aCurrVal">+1.00</span></label>
+                    <input type="range" id="aCurrentMag" min="-3" max="3" step="0.01" value="1.0">
+                    <div class="flex-row">
+                        <span style="font-size:11px; color:#888;">负值表示方向相反</span>
+                        <span style="font-size:11px; color:#888;">大小: <span id="aCurrMagDisplay">1.00</span> mA</span>
+                    </div>
+                </div>
+
+                <div class="ctrl-group anomalous-mode">
+                    <label>🧲 自发磁化强度 M (mT) <span class="value" id="aMagVal">2.00</span></label>
+                    <input type="range" id="aMagFieldMag" min="0" max="10" step="0.01" value="2.0">
+                    <div class="flex-row">
+                        <span style="font-size:11px; color:#888;">正值表示方向</span>
+                        <span style="font-size:11px; color:#888;">大小: <span id="aMagMagDisplay">2.00</span> mT</span>
+                    </div>
+                    <div class="ctrl-desc">铁磁材料自发磁化</div>
+                </div>
+
+                <div class="ctrl-group">
+                    <label>📐 尺寸 (mm)</label>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:50px;"><span style="font-size:10px;">L</span><input type="range" id="aSizeL" min="0.8" max="2.5" step="0.02" value="2.0" style="width:100%;"></div>
+                        <div style="flex:1; min-width:50px;"><span style="font-size:10px;">b</span><input type="range" id="aSizeB" min="0.5" max="1.8" step="0.02" value="1.0" style="width:100%;"></div>
+                        <div style="flex:1; min-width:50px;"><span style="font-size:10px;">d</span><input type="range" id="aSizeD" min="0.1" max="1.5" step="0.01" value="0.8" style="width:100%;"></div>
+                    </div>
+                    <div id="aSizeDisplay" style="font-size:11px; color:#666;">L:2.00  b:1.00  d:0.80 mm</div>
+                </div>
+
+                <div class="voltage-panel" style="background:#fdf6ed; border-left-color:#d4880f;">
+                    <label>📊 反常霍尔电压 V<sub>AHE</sub></label>
+                    <div><span class="big" id="aVhValue" style="color:#d4880f;">0.00</span> <span style="font-size:12px; color:#888;">mV</span></div>
+                    <div id="aVhPolarity" class="sub">极性: 无霍尔电压</div>
+                    <div id="aAccumulationLevel" class="sub" style="color:#666;">电荷积累: 极少 ⚪</div>
+                    <div class="formula-box">
+                        <div><span class="math">V<sub>AHE</sub> = R<sub>AHE</sub> · I<sub>s</sub> · M</span></div>
+                        <div><span class="math">R<sub>AHE</sub></span> 为反常霍尔系数（材料参数）</div>
+                        <div style="font-size:11px; color:#555; margin-top:2px;">
+                            ✅ 与电流、自发磁化强度成正比<br>
+                            <span style="font-size:10px;">M 为磁化强度，方向沿 Z 轴</span>
+                        </div>
+                    </div>
+                    <div class="explanation-box" style="background:rgba(255,248,235,0.6); border-color:#d4880f; margin-top:6px;">
+                        <strong>📖 反常霍尔效应原理</strong><br>
+                        铁磁材料通入工作电流时，依靠自身自发磁化而非外加外磁场，<br>
+                        使载流子横向偏转产生霍尔电压的现象，即为反常霍尔效应。<br>
+                        如果加入外加磁场，会磁化样品，磁化饱和后，再加大磁场，<br>
+                        反常霍尔电压不再变大。
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== TabPane: 量子霍尔效应（已移除边缘电子及其虚线轨迹） ===== -->
+            <div id="tabQuantumContent" class="tab-content">
+                <div id="titleAreaQuantum">
+                    <h1 style="font-size:18px; font-weight:600; color:#1a1a2e; border-bottom:2px solid #9b59b6; padding-bottom:8px;">
+                        ⚡ 量子霍尔效应 <small style="font-size:12px; font-weight:400; color:#666;">二维电子气 (2DEG) · 极低温</small>
+                    </h1>
+                </div>
+
+                <div class="ctrl-group" style="border-left: 3px solid #9b59b6;">
+                    <div style="font-size:14px; font-weight:600; color:#1a2a4a;">🔘 二维电子气 (2DEG)</div>
+                    <div class="ctrl-desc">强磁场 · 极低温 · 量子化</div>
+                </div>
+
+                <div class="ctrl-group quantum-mode">
+                    <label>⚡ 工作电流 I (nA) <span class="value" id="qCurrVal">500</span></label>
+                    <input type="range" id="qCurrentMag" min="100" max="1000" step="10" value="500">
+                    <div class="flex-row">
+                        <span style="font-size:11px; color:#888;">边缘态速度</span>
+                        <span style="font-size:11px; color:#888;">大小: <span id="qCurrMagDisplay">500</span> nA</span>
+                    </div>
+                </div>
+
+                <div class="ctrl-group quantum-mode">
+                    <label>🧲 强磁场 B (T) <span class="value" id="qMagVal">3.0</span></label>
+                    <input type="range" id="qMagFieldMag" min="1" max="5" step="0.1" value="3.0">
+                    <div class="flex-row">
+                        <span style="font-size:11px; color:#888;">磁场方向为正</span>
+                        <span style="font-size:11px; color:#888;">大小: <span id="qMagMagDisplay">3.0</span> T</span>
+                    </div>
+                    <div class="ctrl-desc">回旋半径 ∝ 1/B</div>
+                </div>
+
+                <div class="ctrl-group quantum-mode">
+                    <label>🌡️ 温度 T (K) <span class="value" id="qTempVal" style="color:#9b59b6;">2.80</span></label>
+                    <input type="range" id="qTempSlider" min="1.4" max="4.2" step="0.1" value="2.8">
+                    <div class="flex-row">
+                        <span style="font-size:11px; color:#888;">极低温条件</span>
+                        <span style="font-size:11px; color:#888;">温度: <span id="qTempDisplay">2.80</span> K</span>
+                    </div>
+                </div>
+
+                <!-- 量子模式没有尺寸滑块 -->
+
+                <div class="voltage-panel" style="background:#f3eef9; border-left-color:#9b59b6;">
+                    <label>📊 量子霍尔效应</label>
+                    <div><span class="big" id="qVhValue" style="color:#9b59b6;">ν·e²/h</span></div>
+                    <div id="qVhPolarity" class="sub">量子化平台</div>
+                    <div id="qAccumulationLevel" class="sub" style="color:#666;">边缘态导电</div>
+                    <div class="formula-box">
+                        <div><span class="math">σ<sub>xy</sub> = ν · e<sup>2</sup> / h</span></div>
+                        <div><span class="math">ν</span> 为填充因子 (整数)</div>
+                        <div style="font-size:11px; color:#555; margin-top:2px;">
+                            ✅ 霍尔电导量子化，出现平台<br>
+                            <span style="font-size:10px;">强磁场 (1-5T) · 极低温 (1.4-4.2K)</span>
+                        </div>
+                    </div>
+                    <!-- 量子霍尔效应定义（已添加补充说明） -->
+                    <div style="margin-top:6px; background:#f3eef9; padding:6px 8px; border-radius:6px; font-size:11px; border-left:3px solid #9b59b6;">
+                        <strong>📖 量子霍尔效应</strong><br>
+                        极强磁场与极低温度下二维电子气的霍尔电阻出现分段固定量子化平台，纵向电阻归零的输运现象。
+                        <br><br>
+                        分为整数量子霍尔效应，分数量子霍尔效应和量子反常霍尔效应，强磁场把内部电子束缚在原地做圆周运动，边缘电子单向沿边缘通道流动，没有焦耳损耗。
+                    </div>
+                </div>
+            </div>
+
+            <!-- 公共操作按钮 -->
+            <div class="ctrl-group" style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
+                <button id="resetViewBtn" class="btn-outline">重置视角</button>
+                <button id="resetAccumulationBtn" class="btn-outline">重置电荷积累</button>
+                <button id="resetAllBtn" class="btn-reset" style="background:#3a86ff; box-shadow:0 2px 8px rgba(58,134,255,0.2);">↺ 恢复默认参数</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="sceneContainer">
+        <div class="info-text" id="sceneInfo">🟢 N型电子 · 红色=洛伦兹力 · 蓝色=电场力 · 最终匀速</div>
+        <div class="axis-container" id="axisContainer"></div>
+    </div>
+
+    <script type="importmap"> { "imports": { "three": "https://unpkg.com/three@0.128.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/" } } </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // --- DOM引用 ---
+        const container = document.getElementById('sceneContainer');
+
+        // --- 场景初始化 ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(5.0, 4.0, 5.0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        container.appendChild(renderer.domElement);
+
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(container.clientWidth, container.clientHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        container.appendChild(labelRenderer.domElement);
+
+        const orbitControls = new OrbitControls(camera, renderer.domElement);
+        orbitControls.enableDamping = true;
+        orbitControls.dampingFactor = 0.08;
+        orbitControls.zoomSpeed = 1.0;
+        orbitControls.rotateSpeed = 1.0;
+        orbitControls.target.set(0, 0, 0);
+        orbitControls.update();
+
+        // --- 灯光 ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(2, 5, 3);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+        const backLight = new THREE.DirectionalLight(0x8888ff, 0.3);
+        backLight.position.set(-2, 1, -3);
+        scene.add(backLight);
+        const fillLight = new THREE.DirectionalLight(0xccccff, 0.3);
+        fillLight.position.set(1, 2, 2);
+        scene.add(fillLight);
+
+        const gridHelper = new THREE.GridHelper(9, 20, 0xcccccc, 0xdddddd);
+        gridHelper.position.y = -1.2;
+        scene.add(gridHelper);
+
+        // --- 坐标轴指示器 ---
+        const axisScene = new THREE.Scene();
+        axisScene.background = null;
+        const axisCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 10);
+        axisCamera.position.set(1.8, 1.8, 1.8);
+        axisCamera.lookAt(0, 0, 0);
+        const axisRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        axisRenderer.setSize(140, 140);
+        axisRenderer.setClearColor(0x000000, 0);
+        const axisContainer = document.getElementById('axisContainer');
+        axisContainer.innerHTML = '';
+        axisContainer.appendChild(axisRenderer.domElement);
+
+        const xArrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1.2, 0xff6666, 0.35, 0.22);
+        axisScene.add(xArrow);
+        const yArrow = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 1.2, 0x66ff66, 0.35, 0.22);
+        axisScene.add(yArrow);
+        const zArrow = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), 1.2, 0x66aaff, 0.35, 0.22);
+        axisScene.add(zArrow);
+        function makeAxisLabel(text, color, position) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32; canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.font = "Bold 20px 'Segoe UI'";
+            ctx.fillText(text, 4, 24);
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(0.4, 0.4, 0.4);
+            sprite.position.copy(position);
+            axisScene.add(sprite);
+        }
+        makeAxisLabel('X', '#ff8888', new THREE.Vector3(1.35, -0.15, 0));
+        makeAxisLabel('Y', '#88ff88', new THREE.Vector3(0, 1.35, 0.15));
+        makeAxisLabel('Z', '#88aaff', new THREE.Vector3(0, -0.15, 1.35));
+        const originSphereAxis = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), new THREE.MeshStandardMaterial({ color: 0x888888 }));
+        axisScene.add(originSphereAxis);
+
+        function updateAxisIndicator() {
+            axisCamera.quaternion.copy(camera.quaternion);
+            axisRenderer.render(axisScene, axisCamera);
+        }
+
+        // --- 全局三维物体（所有模式共享） ---
+        let semiconductorMesh = null, currentArrowObj = null, magneticArrowObj = null;
+        let currentLabel = null, magneticLabel = null, chargeTopLabel = null, chargeBottomLabel = null;
+        let lorentzArrow = null, efieldArrow = null;
+        let vhUpArrow = null, vhDownArrow = null, vhLabel = null;
+        let chargeSphere = null;
+        let chargeXPos = 0, chargeYPos = 0, chargeVelocityY = 0;
+        let trailPoints = [], trailLine = null;
+        const TRAIL_LENGTH = 80;
+
+        // 量子模式额外物体
+        let quantumGroup = null;
+        let innerElectrons = [];
+        let trajectoryLines = [];
+        let quantumCurrentArrow = null;
+        let quantumCurrentLabel = null;
+        let quantumBArrow = null;
+        let quantumBLabel = null;
+
+        // --- 参数状态（分别存储三个模式） ---
+        const params = {
+            normal: { I_mag: 1.0, B_mag: 1.0, L: 2.0, b: 1.0, d: 0.8 },
+            anomalous: { I_mag: 1.0, B_mag: 2.0, L: 2.0, b: 1.0, d: 0.8 },
+            quantum: { I_mag: 500, B_mag: 3.0, temperature: 2.8, L: 2.0, b: 1.0, d: 0.8 }
+        };
+
+        let currentMode = 'normal';
+        const FIXED_CHARGE_SPEED = 0.022;
+
+        function getCurrentParams() { return params[currentMode]; }
+
+        // --- 辅助函数 ---
+        function getISign() {
+            const p = getCurrentParams();
+            return Math.sign(p.I_mag) || 1;
+        }
+        function getIMag() {
+            const p = getCurrentParams();
+            return Math.abs(p.I_mag);
+        }
+        function getFieldSign() {
+            const p = getCurrentParams();
+            return Math.sign(p.B_mag) || 1;
+        }
+        function getFieldMag() {
+            const p = getCurrentParams();
+            return Math.abs(p.B_mag);
+        }
+        function getChargeDir() {
+            return -getISign();
+        }
+
+        function getElectricFieldConstant() {
+            const vx = FIXED_CHARGE_SPEED;
+            const fieldMag = getFieldMag();
+            if (vx < 1e-6 || fieldMag < 1e-6) return 0;
+            const p = getCurrentParams();
+            const targetBalance = p.b * 0.35;
+            return (vx * fieldMag) / targetBalance * 1.0;
+        }
+
+        function computeVoltageDirection() {
+            const iSign = getISign(), fieldSign = getFieldSign();
+            if (getIMag() < 0.01 || getFieldMag() < 0.01) return 0;
+            return iSign * fieldSign;
+        }
+        function computeVoltage() {
+            if (getIMag() < 0.01 || getFieldMag() < 0.01) return 0;
+            // 修改 coeff 为 0.035
+            const coeff = 0.035;
+            const magnitude = getIMag() * getFieldMag() / Math.max(0.1, getCurrentParams().d) * coeff;
+            return magnitude * computeVoltageDirection();
+        }
+
+        // --- 更新 UI 面板（根据当前模式刷新显示） ---
+        function refreshUI() {
+            const p = getCurrentParams();
+            const isQuantum = (currentMode === 'quantum');
+            const isAnomalous = (currentMode === 'anomalous');
+
+            // 根据模式选择对应的面板元素
+            const prefix = isQuantum ? 'q' : (isAnomalous ? 'a' : 'n');
+
+            // 电流
+            const currValEl = document.getElementById(prefix + 'CurrVal');
+            const currMagEl = document.getElementById(prefix + 'CurrentMag');
+            const currMagDisplay = document.getElementById(prefix + 'CurrMagDisplay');
+            if (isQuantum) {
+                currValEl.textContent = Math.round(p.I_mag);
+                currMagDisplay.textContent = Math.round(p.I_mag);
+                currMagEl.value = p.I_mag;
+            } else {
+                const sign = p.I_mag >= 0 ? '+' : '';
+                currValEl.textContent = `${sign}${p.I_mag.toFixed(2)}`;
+                currMagDisplay.textContent = Math.abs(p.I_mag).toFixed(2);
+                currMagEl.value = p.I_mag;
+            }
+
+            // 磁场
+            const magValEl = document.getElementById(prefix + 'MagVal');
+            const magMagEl = document.getElementById(prefix + 'MagFieldMag');
+            const magMagDisplay = document.getElementById(prefix + 'MagMagDisplay');
+            if (isQuantum) {
+                magValEl.textContent = p.B_mag.toFixed(1);
+                magMagDisplay.textContent = p.B_mag.toFixed(1);
+                magMagEl.value = p.B_mag;
+            } else if (isAnomalous) {
+                magValEl.textContent = p.B_mag.toFixed(2);
+                magMagDisplay.textContent = p.B_mag.toFixed(2);
+                magMagEl.value = p.B_mag;
+            } else {
+                const sign = p.B_mag >= 0 ? '+' : '';
+                magValEl.textContent = `${sign}${p.B_mag.toFixed(2)}`;
+                magMagDisplay.textContent = Math.abs(p.B_mag).toFixed(2);
+                magMagEl.value = p.B_mag;
+            }
+
+            // 尺寸（量子模式无尺寸）
+            if (!isQuantum) {
+                const sizeL = document.getElementById(prefix + 'SizeL');
+                const sizeB = document.getElementById(prefix + 'SizeB');
+                const sizeD = document.getElementById(prefix + 'SizeD');
+                const sizeDisplay = document.getElementById(prefix + 'SizeDisplay');
+                sizeL.value = p.L;
+                sizeB.value = p.b;
+                sizeD.value = p.d;
+                sizeDisplay.textContent = `L:${p.L.toFixed(2)}  b:${p.b.toFixed(2)}  d:${p.d.toFixed(2)} mm`;
+            }
+
+            // 温度（仅量子）
+            if (isQuantum) {
+                const tempSlider = document.getElementById('qTempSlider');
+                const tempVal = document.getElementById('qTempVal');
+                const tempDisplay = document.getElementById('qTempDisplay');
+                tempSlider.value = p.temperature;
+                tempVal.textContent = p.temperature.toFixed(1);
+                tempDisplay.textContent = p.temperature.toFixed(1);
+            }
+
+            // 电压显示（量子模式固定，正常/反常实时计算）
+            if (isQuantum) {
+                // 已经静态显示
+            } else {
+                updateAccumulationUI(0);
+            }
+        }
+
+        // --- 更新积累和电压（正常/反常） ---
+        function updateAccumulationUI(ratio) {
+            if (currentMode === 'quantum') return;
+            const p = getCurrentParams();
+            const prefix = (currentMode === 'anomalous') ? 'a' : 'n';
+            const levelDiv = document.getElementById(prefix + 'AccumulationLevel');
+            if (ratio < 0.1) levelDiv.textContent = "电荷积累: 极少 ⚪";
+            else if (ratio < 0.3) levelDiv.textContent = "电荷积累: 较少 🔵";
+            else if (ratio < 0.6) levelDiv.textContent = "电荷积累: 中 🟢";
+            else if (ratio < 0.85) levelDiv.textContent = "电荷积累: 较多 🟡";
+            else levelDiv.textContent = "电荷积累: 饱和 🔴";
+
+            const vh = computeVoltage();
+            const absV = Math.abs(vh).toFixed(2);
+            const sign = vh >= 0 ? '+' : '';
+            document.getElementById(prefix + 'VhValue').textContent = `${sign}${absV}`;
+            const polarityDiv = document.getElementById(prefix + 'VhPolarity');
+            if (vh > 0.02) polarityDiv.textContent = '极性: 上表面正(+) 下表面负(-)';
+            else if (vh < -0.02) polarityDiv.textContent = '极性: 上表面负(-) 下表面正(+)';
+            else polarityDiv.textContent = '极性: 无霍尔电压';
+        }
+
+        // --- 重置积累 ---
+        function resetAccumulation() {
+            if (currentMode === 'quantum') return;
+            chargeYPos = 0;
+            chargeVelocityY = 0;
+            chargeSphere.position.y = 0;
+            trailPoints = [];
+            if (trailLine) scene.remove(trailLine);
+            trailLine = null;
+            updateAccumulationUI(0);
+            // 更新UI
+            const prefix = (currentMode === 'anomalous') ? 'a' : 'n';
+            document.getElementById(prefix + 'VhValue').textContent = '0.00';
+            document.getElementById(prefix + 'VhPolarity').textContent = '极性: 无霍尔电压';
+            if (chargeTopLabel && chargeBottomLabel) {
+                chargeTopLabel.element.textContent = '⚖️ 电荷平衡';
+                chargeBottomLabel.element.textContent = '⚖️ 电荷平衡';
+            }
+            if (lorentzArrow) lorentzArrow.setLength(0);
+            if (efieldArrow) efieldArrow.setLength(0);
+        }
+
+        // --- 重置电荷初始位置（创建醒目小球） ---
+        function resetCharge() {
+            if (currentMode === 'quantum') return;
+            if (!chargeSphere) {
+                // 创建更大、更亮的电子球
+                const geometry = new THREE.SphereGeometry(0.12, 32, 32);
+                const material = new THREE.MeshStandardMaterial({
+                    color: 0x44ff44,
+                    emissive: 0x44ff44,
+                    emissiveIntensity: 0.5,
+                    metalness: 0.1,
+                    roughness: 0.2,
+                });
+                chargeSphere = new THREE.Mesh(geometry, material);
+                chargeSphere.castShadow = true;
+                // 添加光晕
+                const glowGeo = new THREE.SphereGeometry(0.16, 16, 16);
+                const glowMat = new THREE.MeshBasicMaterial({
+                    color: 0x44ff44,
+                    transparent: true,
+                    opacity: 0.15,
+                });
+                const glow = new THREE.Mesh(glowGeo, glowMat);
+                chargeSphere.add(glow);
+                scene.add(chargeSphere);
+            }
+            const dir = getChargeDir();
+            const p = getCurrentParams();
+            chargeXPos = (dir === 1) ? -p.L/2 : p.L/2;
+            chargeYPos = 0;
+            chargeVelocityY = 0;
+            chargeSphere.position.set(chargeXPos, chargeYPos, 0);
+            trailPoints = [];
+            if (trailLine) scene.remove(trailLine);
+            trailLine = null;
+        }
+
+        // --- 物理更新（正常/反常） ---
+        function updateChargeMotion() {
+            if (currentMode === 'quantum' || !chargeSphere) return;
+            const p = getCurrentParams();
+            const { L, b } = p;
+            const vx = FIXED_CHARGE_SPEED;
+            const vxSign = getChargeDir();
+            const iMag = getIMag(), fieldMag = getFieldMag(), fieldSign = getFieldSign();
+            const Bz = fieldMag * fieldSign;
+            const qSign = -1;
+
+            const lorentzDirection = -qSign * vxSign * fieldSign;
+            const lorentzMagnitude = Math.abs(vx * Bz) * (iMag * fieldMag) * 0.006;
+            let lorentzForce = lorentzMagnitude * lorentzDirection;
+
+            const K = getElectricFieldConstant();
+            let efieldForce = 0;
+            if (K > 0 && iMag > 0.01 && fieldMag > 0.01) {
+                const efieldStrength = K * chargeYPos * (iMag * fieldMag) * 0.004;
+                efieldForce = -qSign * efieldStrength;
+            }
+
+            let netForce = lorentzForce + efieldForce;
+            const damping = 0.94;
+            let ay = netForce * 0.018;
+            chargeVelocityY = chargeVelocityY * damping + ay;
+            const maxVy = 0.04;
+            if (chargeVelocityY > maxVy) chargeVelocityY = maxVy;
+            if (chargeVelocityY < -maxVy) chargeVelocityY = -maxVy;
+
+            let newY = chargeYPos + chargeVelocityY;
+            const halfB = b/2;
+            if (newY > halfB) { newY = halfB; chargeVelocityY = 0; }
+            if (newY < -halfB) { newY = -halfB; chargeVelocityY = 0; }
+            chargeYPos = newY;
+
+            let dx = vx * vxSign;
+            let newX = chargeXPos + dx;
+            const halfL = L/2;
+            if (newX > halfL) { newX = -halfL; chargeYPos = 0; chargeVelocityY = 0; trailPoints = []; if (trailLine) scene.remove(trailLine); trailLine = null; }
+            else if (newX < -halfL) { newX = halfL; chargeYPos = 0; chargeVelocityY = 0; trailPoints = []; if (trailLine) scene.remove(trailLine); trailLine = null; }
+            chargeXPos = newX;
+            chargeSphere.position.set(chargeXPos, chargeYPos, 0);
+
+            trailPoints.push(chargeSphere.position.clone());
+            if (trailPoints.length > TRAIL_LENGTH) trailPoints.shift();
+            updateTrailLine();
+            updateForceArrows(lorentzForce, efieldForce);
+            const accumulationRatio = Math.abs(chargeYPos) / (halfB * 0.9);
+            updateAccumulationUI(accumulationRatio);
+        }
+
+        function updateForceArrows(lorentzNet, efieldNet) {
+            if (!lorentzArrow || !efieldArrow) return;
+            const pos = chargeSphere.position.clone();
+            const lorentzDir = new THREE.Vector3(0, Math.sign(lorentzNet), 0);
+            const lorentzMag = Math.min(0.55, Math.abs(lorentzNet) * 0.9);
+            if (Math.abs(lorentzNet) > 0.01) {
+                lorentzArrow.setDirection(lorentzDir);
+                lorentzArrow.setLength(0.35 + lorentzMag, 0.22, 0.12);
+                lorentzArrow.setColor(0xff6666);
+            } else { lorentzArrow.setLength(0); }
+            lorentzArrow.position.copy(pos.clone().add(new THREE.Vector3(0.18, 0, 0)));
+
+            const efieldDir = new THREE.Vector3(0, Math.sign(efieldNet), 0);
+            const efieldMag = Math.min(0.55, Math.abs(efieldNet) * 0.9);
+            if (Math.abs(efieldNet) > 0.01) {
+                efieldArrow.setDirection(efieldDir);
+                efieldArrow.setLength(0.35 + efieldMag, 0.22, 0.12);
+                efieldArrow.setColor(0x66aaff);
+            } else { efieldArrow.setLength(0); }
+            efieldArrow.position.copy(pos.clone().add(new THREE.Vector3(-0.18, 0, 0)));
+        }
+
+        function updateTrailLine() {
+            if (trailLine) scene.remove(trailLine);
+            if (trailPoints.length < 2) return;
+            const points = trailPoints.map(p => p.clone());
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: 0xffaa66, linewidth: 2 });
+            trailLine = new THREE.Line(geometry, material);
+            scene.add(trailLine);
+        }
+
+        // ============================================================
+        // 量子模式构建（仅内部电子，已移除边缘电子及其轨迹）
+        // ============================================================
+        function buildQuantumScene() {
+            if (quantumGroup) {
+                scene.remove(quantumGroup);
+                quantumGroup = null;
+            }
+            if (quantumCurrentArrow) scene.remove(quantumCurrentArrow);
+            if (quantumCurrentLabel) scene.remove(quantumCurrentLabel);
+            if (quantumBArrow) scene.remove(quantumBArrow);
+            if (quantumBLabel) scene.remove(quantumBLabel);
+            quantumCurrentArrow = null;
+            quantumCurrentLabel = null;
+            quantumBArrow = null;
+            quantumBLabel = null;
+
+            innerElectrons = [];
+            trajectoryLines.forEach(line => scene.remove(line));
+            trajectoryLines = [];
+
+            const p = getCurrentParams();
+            const Lx = 2.0;
+            const Ly = 1.5;
+            const Lz = 0.3;
+            const halfLx = Lx/2;
+            const halfLy = Ly/2;
+            const halfLz = Lz/2;
+
+            quantumGroup = new THREE.Group();
+
+            // 半透明霍尔片
+            const boxGeo = new THREE.BoxGeometry(Lx, Ly, Lz);
+            const boxMat = new THREE.MeshPhongMaterial({
+                color: 0x9b59b6,
+                transparent: true,
+                opacity: 0.10,
+                emissive: 0x4a0080,
+                emissiveIntensity: 0.02,
+                side: THREE.DoubleSide,
+            });
+            const boxMesh = new THREE.Mesh(boxGeo, boxMat);
+            boxMesh.position.set(0, 0, 0);
+            quantumGroup.add(boxMesh);
+
+            // 边框线
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0x9b59b6, opacity: 0.4, transparent: true });
+            const corners = [
+                new THREE.Vector3(-halfLx, -halfLy, -halfLz),
+                new THREE.Vector3( halfLx, -halfLy, -halfLz),
+                new THREE.Vector3( halfLx,  halfLy, -halfLz),
+                new THREE.Vector3(-halfLx,  halfLy, -halfLz),
+                new THREE.Vector3(-halfLx, -halfLy, -halfLz),
+            ];
+            const edgeGeo = new THREE.BufferGeometry().setFromPoints(corners);
+            const edgeLine = new THREE.Line(edgeGeo, edgeMat);
+            quantumGroup.add(edgeLine);
+
+            const topCorners = corners.map(p => new THREE.Vector3(p.x, p.y, halfLz));
+            const bottomCorners = corners.map(p => new THREE.Vector3(p.x, p.y, -halfLz));
+            const topGeo = new THREE.BufferGeometry().setFromPoints(topCorners);
+            const bottomGeo = new THREE.BufferGeometry().setFromPoints(bottomCorners);
+            const topLine = new THREE.Line(topGeo, edgeMat);
+            const bottomLine = new THREE.Line(bottomGeo, edgeMat);
+            quantumGroup.add(topLine);
+            quantumGroup.add(bottomLine);
+
+            for (let i = 0; i < 4; i++) {
+                const p1 = corners[i];
+                const pts = [new THREE.Vector3(p1.x, p1.y, -halfLz), new THREE.Vector3(p1.x, p1.y, halfLz)];
+                const g = new THREE.BufferGeometry().setFromPoints(pts);
+                const l = new THREE.Line(g, edgeMat);
+                quantumGroup.add(l);
+            }
+
+            // 内部电子：4行 × 6列（回旋）
+            const rows = 4;
+            const cols = 6;
+            const spacingX = Lx * 0.7 / (cols - 1);
+            const spacingY = Ly * 0.7 / (rows - 1);
+            const startX = - (cols-1) * spacingX / 2;
+            const startY = - (rows-1) * spacingY / 2;
+            const innerMat = new THREE.MeshStandardMaterial({ color: 0x3498db, emissive: 0x1a5276, emissiveIntensity: 0.3 });
+            const B = Math.max(p.B_mag, 0.1);
+            const baseRadius = 0.06 * Math.min(Lx, Ly) / (B + 0.5);
+            const omega = 0.03 + 0.015 * Math.random();
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const cx = startX + col * spacingX;
+                    const cy = startY + row * spacingY;
+                    const distX = halfLx - Math.abs(cx);
+                    const distY = halfLy - Math.abs(cy);
+                    const maxR = Math.min(distX, distY) * 0.5;
+                    const radius = Math.min(baseRadius, maxR);
+                    if (radius < 0.005) continue;
+
+                    const angle = Math.random() * 2 * Math.PI;
+                    const sphereGeo = new THREE.SphereGeometry(0.035, 10, 10);
+                    const mesh = new THREE.Mesh(sphereGeo, innerMat);
+                    mesh.position.set(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle), 0);
+                    quantumGroup.add(mesh);
+                    innerElectrons.push({
+                        mesh: mesh,
+                        cx: cx,
+                        cy: cy,
+                        cz: 0,
+                        radius: radius,
+                        angle: angle,
+                        omega: omega * (0.8 + 0.4 * Math.random()),
+                    });
+
+                    // 轨迹虚线圆
+                    const pts = [];
+                    const steps = 40;
+                    for (let i = 0; i <= steps; i++) {
+                        const theta = (i / steps) * 2 * Math.PI;
+                        const x = cx + radius * Math.cos(theta);
+                        const y = cy + radius * Math.sin(theta);
+                        pts.push(new THREE.Vector3(x, y, 0));
+                    }
+                    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                    const mat = new THREE.LineDashedMaterial({
+                        color: 0x3498db,
+                        dashSize: 0.02,
+                        gapSize: 0.02,
+                        transparent: true,
+                        opacity: 0.4,
+                    });
+                    const line = new THREE.Line(geo, mat);
+                    line.computeLineDistances();
+                    quantumGroup.add(line);
+                    trajectoryLines.push(line);
+                }
+            }
+
+            // 已移除边缘电子及其轨迹虚线
+
+            scene.add(quantumGroup);
+
+            // 3D 箭头：电流和磁场（保留）
+            const currentDir = new THREE.Vector3(1, 0, 0);
+            const currentOrigin = new THREE.Vector3(-halfLx - 0.6, 0, 0);
+            quantumCurrentArrow = new THREE.ArrowHelper(currentDir, currentOrigin, 0.7, 0xff3333, 0.3, 0.15);
+            scene.add(quantumCurrentArrow);
+
+            const iLabelDiv = document.createElement('div');
+            const currentVal = Math.round(p.I_mag);
+            iLabelDiv.textContent = `I = ${currentVal} nA`;
+            iLabelDiv.style.cssText = 'color:#cc3333;font-size:14px;font-weight:bold;background:rgba(255,255,255,0.8);padding:2px 10px;border-radius:12px;border:1px solid #cc3333;';
+            quantumCurrentLabel = new CSS2DObject(iLabelDiv);
+            quantumCurrentLabel.position.set(-halfLx - 0.8, 0.35, 0);
+            scene.add(quantumCurrentLabel);
+
+            const bDir = new THREE.Vector3(0, 0, 1);
+            const bOrigin = new THREE.Vector3(0, halfLy + 0.4, 0);
+            quantumBArrow = new THREE.ArrowHelper(bDir, bOrigin, 0.7, 0x3399ff, 0.3, 0.15);
+            scene.add(quantumBArrow);
+
+            const bLabelDiv = document.createElement('div');
+            const bVal = p.B_mag.toFixed(1);
+            bLabelDiv.textContent = `B = ${bVal} T`;
+            bLabelDiv.style.cssText = 'color:#2266cc;font-size:14px;font-weight:bold;background:rgba(255,255,255,0.8);padding:2px 10px;border-radius:12px;border:1px solid #2266cc;';
+            quantumBLabel = new CSS2DObject(bLabelDiv);
+            quantumBLabel.position.set(0, halfLy + 0.9, 0);
+            scene.add(quantumBLabel);
+        }
+
+        function updateQuantumMotion() {
+            if (!quantumGroup) return;
+            const p = getCurrentParams();
+            const B = Math.max(p.B_mag, 0.1);
+            const I = Math.max(p.I_mag, 100);
+            const T = p.temperature;
+
+            const radiusScale = 0.8 / (B + 0.5);
+            for (let e of innerElectrons) {
+                const r = e.radius * radiusScale * 1.5;
+                e.angle += e.omega * 0.5 * (1 + 0.1 * (4.2 - T));
+                e.mesh.position.x = e.cx + r * Math.cos(e.angle);
+                e.mesh.position.y = e.cy + r * Math.sin(e.angle);
+            }
+
+            // 已移除边缘电子的更新逻辑
+
+            if (quantumCurrentLabel) {
+                quantumCurrentLabel.element.textContent = `I = ${Math.round(p.I_mag)} nA`;
+            }
+            if (quantumBLabel) {
+                quantumBLabel.element.textContent = `B = ${p.B_mag.toFixed(1)} T`;
+            }
+        }
+
+        // --- 重建场景（根据当前模式） ---
+        function rebuildScene() {
+            // 清除共享物体
+            if (semiconductorMesh) scene.remove(semiconductorMesh);
+            if (currentArrowObj) scene.remove(currentArrowObj);
+            if (magneticArrowObj) scene.remove(magneticArrowObj);
+            if (currentLabel) scene.remove(currentLabel);
+            if (magneticLabel) scene.remove(magneticLabel);
+            if (chargeTopLabel) scene.remove(chargeTopLabel);
+            if (chargeBottomLabel) scene.remove(chargeBottomLabel);
+            if (lorentzArrow) scene.remove(lorentzArrow);
+            if (efieldArrow) scene.remove(efieldArrow);
+            if (vhUpArrow) scene.remove(vhUpArrow);
+            if (vhDownArrow) scene.remove(vhDownArrow);
+            if (vhLabel) scene.remove(vhLabel);
+            if (chargeSphere) scene.remove(chargeSphere);
+            if (trailLine) scene.remove(trailLine);
+            if (quantumGroup) scene.remove(quantumGroup);
+            quantumGroup = null;
+            innerElectrons = [];
+            trajectoryLines.forEach(line => scene.remove(line));
+            trajectoryLines = [];
+            if (quantumCurrentArrow) scene.remove(quantumCurrentArrow);
+            if (quantumCurrentLabel) scene.remove(quantumCurrentLabel);
+            if (quantumBArrow) scene.remove(quantumBArrow);
+            if (quantumBLabel) scene.remove(quantumBLabel);
+            quantumCurrentArrow = null;
+            quantumCurrentLabel = null;
+            quantumBArrow = null;
+            quantumBLabel = null;
+
+            if (currentMode === 'quantum') {
+                buildQuantumScene();
+                // 更新场景信息
+                document.getElementById('sceneInfo').textContent = '🟣 量子霍尔效应 · 内部电子（蓝）回旋 · 边缘态导电';
+                return;
+            }
+
+            // 正常/反常模式
+            const p = getCurrentParams();
+            const { L, b, d } = p;
+            const geometry = new THREE.BoxGeometry(L, b, d);
+            const material = new THREE.MeshPhongMaterial({ color: 0x3a86ff, transparent: true, opacity: 0.30, emissive: 0x001133, side: THREE.DoubleSide });
+            semiconductorMesh = new THREE.Mesh(geometry, material);
+            semiconductorMesh.castShadow = true;
+            scene.add(semiconductorMesh);
+            const edges = new THREE.EdgesGeometry(geometry);
+            const wireframe = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x88ccff }));
+            semiconductorMesh.add(wireframe);
+
+            const iSign = getISign(), iMag = getIMag(), fieldSign = getFieldSign(), fieldMag = getFieldMag();
+            const isNormal = (currentMode === 'normal');
+
+            // 颜色
+            const mainColor = isNormal ? 0x00aacc : 0xd4880f;
+            const vhColor = isNormal ? 0xffaa44 : 0xd4880f;
+            const labelColor = isNormal ? '#0088aa' : '#d4880f';
+
+            // 电流箭头
+            const currOrigin = new THREE.Vector3(-L/2 - 0.35, 0, 0);
+            const currDir = new THREE.Vector3(iSign, 0, 0);
+            currentArrowObj = new THREE.ArrowHelper(currDir, currOrigin, 0.85, 0xff6666, 0.26, 0.15);
+            scene.add(currentArrowObj);
+            const iDiv = document.createElement('div');
+            iDiv.textContent = iSign === 1 ? "I_s →" : "I_s ←";
+            iDiv.style.cssText = "color:#cc4444;font-size:13px;font-weight:bold;background:rgba(255,255,255,0.7);padding:2px 8px;border-radius:14px;border:1px solid #ddd;";
+            currentLabel = new CSS2DObject(iDiv);
+            currentLabel.position.set(-L/2 - 0.55, 0.25, 0);
+            scene.add(currentLabel);
+
+            // 磁场/磁化箭头
+            const magOrigin = new THREE.Vector3(0, -b/2 - 0.35, -d/2 - 0.55);
+            const magDir = new THREE.Vector3(0, 0, fieldSign);
+            magneticArrowObj = new THREE.ArrowHelper(magDir, magOrigin, 0.9, mainColor, 0.28, 0.16);
+            scene.add(magneticArrowObj);
+            const bDiv = document.createElement('div');
+            const labelText = isNormal ? (fieldSign === 1 ? "B →" : "B ←") : (fieldSign === 1 ? "M →" : "M ←");
+            bDiv.textContent = labelText;
+            bDiv.style.cssText = `color:${labelColor};font-size:13px;font-weight:bold;background:rgba(255,255,255,0.7);padding:2px 8px;border-radius:14px;border:1px solid #ddd;`;
+            magneticLabel = new CSS2DObject(bDiv);
+            magneticLabel.position.set(0.25, -b/2 - 0.55, -d/2 - 0.7);
+            scene.add(magneticLabel);
+
+            // 电荷积累标签
+            const upDiv = document.createElement('div');
+            upDiv.style.cssText = "background:rgba(255,255,255,0.8);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:bold;border:1px solid #ffaa55;color:#333;";
+            const downDiv = document.createElement('div');
+            downDiv.style.cssText = upDiv.style.cssText;
+            chargeTopLabel = new CSS2DObject(upDiv);
+            chargeBottomLabel = new CSS2DObject(downDiv);
+            chargeTopLabel.position.set(0, b/2 + 0.2, 0);
+            chargeBottomLabel.position.set(0, -b/2 - 0.2, 0);
+            scene.add(chargeTopLabel);
+            scene.add(chargeBottomLabel);
+
+            // 洛伦兹力和电场力箭头
+            lorentzArrow = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 0.5, 0xff6666, 0.25, 0.12);
+            efieldArrow = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 0.5, 0x66aaff, 0.25, 0.12);
+            scene.add(lorentzArrow);
+            scene.add(efieldArrow);
+
+            // 霍尔电压箭头
+            const arrowLen = 0.25, offset = 0.18;
+            const upPos = new THREE.Vector3(0, b/2 + offset, 0);
+            const downPos = new THREE.Vector3(0, -b/2 - offset, 0);
+            vhUpArrow = new THREE.ArrowHelper(new THREE.Vector3(0,-1,0), upPos, arrowLen, vhColor, 0.15, 0.08);
+            vhDownArrow = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), downPos, arrowLen, vhColor, 0.15, 0.08);
+            scene.add(vhUpArrow);
+            scene.add(vhDownArrow);
+
+            const vhDiv = document.createElement('div');
+            vhDiv.textContent = isNormal ? 'U_H' : 'U_AHE';
+            vhDiv.style.cssText = `color:${isNormal ? '#d4880f' : '#d4880f'};font-size:15px;font-weight:bold;background:rgba(255,255,255,0.8);padding:2px 10px;border-radius:16px;border:1px solid ${isNormal ? '#ffaa44' : '#d4880f'};`;
+            vhLabel = new CSS2DObject(vhDiv);
+            vhLabel.position.set(0.4, 0, 0);
+            scene.add(vhLabel);
+
+            // 重置电荷（会创建新的小球）
+            resetCharge();
+            updateAccumulationUI(0);
+
+            // 场景信息
+            document.getElementById('sceneInfo').textContent = isNormal ?
+                '🟢 N型电子 · 红色=洛伦兹力 · 蓝色=电场力 · 最终匀速' :
+                '🟢 N型电子 (铁磁) · 红色=等效洛伦兹力 · 蓝色=电场力 · 最终匀速';
+        }
+
+        // --- 重置所有参数（当前模式） ---
+        function resetAllParams() {
+            const p = getCurrentParams();
+            if (currentMode === 'quantum') {
+                p.I_mag = 500;
+                p.B_mag = 3.0;
+                p.temperature = 2.8;
+                p.L = 2.0;
+                p.b = 1.0;
+                p.d = 0.8;
+            } else if (currentMode === 'anomalous') {
+                p.I_mag = 1.0;
+                p.B_mag = 2.0;
+                p.L = 2.0;
+                p.b = 1.0;
+                p.d = 0.8;
+            } else {
+                p.I_mag = 1.0;
+                p.B_mag = 1.0;
+                p.L = 2.0;
+                p.b = 1.0;
+                p.d = 0.8;
+            }
+            refreshUI();
+            rebuildScene();
+            resetAccumulation();
+            camera.position.set(5.0, 4.0, 5.0);
+            orbitControls.target.set(0, 0, 0);
+            orbitControls.update();
+        }
+
+        // --- 切换模式 ---
+        function switchMode(mode) {
+            if (currentMode === mode) return;
+            // 保存当前参数（已经实时更新）
+            currentMode = mode;
+            // 切换 Tab 内容显示
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab' + mode.charAt(0).toUpperCase() + mode.slice(1) + 'Content').classList.add('active');
+            // 更新 Tab 按钮高亮
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.toggle('active', el.id === 'tab' + mode.charAt(0).toUpperCase() + mode.slice(1));
+            });
+            // 刷新UI
+            refreshUI();
+            // 重建场景
+            rebuildScene();
+            resetAccumulation();
+        }
+
+        // --- 事件绑定 ---
+        function bindEvents() {
+            // 标签切换
+            document.getElementById('tabNormal').addEventListener('click', () => switchMode('normal'));
+            document.getElementById('tabAnomalous').addEventListener('click', () => switchMode('anomalous'));
+            document.getElementById('tabQuantum').addEventListener('click', () => switchMode('quantum'));
+
+            // 正常模式控件
+            const nCurr = document.getElementById('nCurrentMag');
+            const nMag = document.getElementById('nMagFieldMag');
+            const nL = document.getElementById('nSizeL');
+            const nB = document.getElementById('nSizeB');
+            const nD = document.getElementById('nSizeD');
+
+            nCurr.addEventListener('input', () => {
+                const val = parseFloat(nCurr.value);
+                params.normal.I_mag = val;
+                document.getElementById('nCurrVal').textContent = (val >= 0 ? '+' : '') + val.toFixed(2);
+                document.getElementById('nCurrMagDisplay').textContent = Math.abs(val).toFixed(2);
+                if (currentMode === 'normal') { updateArrowsAndParams(); }
+            });
+            nMag.addEventListener('input', () => {
+                const val = parseFloat(nMag.value);
+                params.normal.B_mag = val;
+                const sign = val >= 0 ? '+' : '';
+                document.getElementById('nMagVal').textContent = `${sign}${val.toFixed(2)}`;
+                document.getElementById('nMagMagDisplay').textContent = Math.abs(val).toFixed(2);
+                if (currentMode === 'normal') { updateArrowsAndParams(); }
+            });
+            function updateNormalSize() {
+                params.normal.L = parseFloat(nL.value);
+                params.normal.b = parseFloat(nB.value);
+                params.normal.d = parseFloat(nD.value);
+                document.getElementById('nSizeDisplay').textContent =
+                    `L:${params.normal.L.toFixed(2)}  b:${params.normal.b.toFixed(2)}  d:${params.normal.d.toFixed(2)} mm`;
+                if (currentMode === 'normal') { rebuildScene(); resetAccumulation(); }
+            }
+            nL.addEventListener('input', updateNormalSize);
+            nB.addEventListener('input', updateNormalSize);
+            nD.addEventListener('input', updateNormalSize);
+
+            // 反常模式控件
+            const aCurr = document.getElementById('aCurrentMag');
+            const aMag = document.getElementById('aMagFieldMag');
+            const aL = document.getElementById('aSizeL');
+            const aB = document.getElementById('aSizeB');
+            const aD = document.getElementById('aSizeD');
+
+            aCurr.addEventListener('input', () => {
+                const val = parseFloat(aCurr.value);
+                params.anomalous.I_mag = val;
+                document.getElementById('aCurrVal').textContent = (val >= 0 ? '+' : '') + val.toFixed(2);
+                document.getElementById('aCurrMagDisplay').textContent = Math.abs(val).toFixed(2);
+                if (currentMode === 'anomalous') { updateArrowsAndParams(); }
+            });
+            aMag.addEventListener('input', () => {
+                let val = parseFloat(aMag.value);
+                if (val < 0) val = 0;
+                params.anomalous.B_mag = val;
+                document.getElementById('aMagVal').textContent = val.toFixed(2);
+                document.getElementById('aMagMagDisplay').textContent = val.toFixed(2);
+                if (currentMode === 'anomalous') { updateArrowsAndParams(); }
+            });
+            function updateAnomalousSize() {
+                params.anomalous.L = parseFloat(aL.value);
+                params.anomalous.b = parseFloat(aB.value);
+                params.anomalous.d = parseFloat(aD.value);
+                document.getElementById('aSizeDisplay').textContent =
+                    `L:${params.anomalous.L.toFixed(2)}  b:${params.anomalous.b.toFixed(2)}  d:${params.anomalous.d.toFixed(2)} mm`;
+                if (currentMode === 'anomalous') { rebuildScene(); resetAccumulation(); }
+            }
+            aL.addEventListener('input', updateAnomalousSize);
+            aB.addEventListener('input', updateAnomalousSize);
+            aD.addEventListener('input', updateAnomalousSize);
+
+            // 量子模式控件
+            const qCurr = document.getElementById('qCurrentMag');
+            const qMag = document.getElementById('qMagFieldMag');
+            const qTemp = document.getElementById('qTempSlider');
+
+            qCurr.addEventListener('input', () => {
+                const val = parseFloat(qCurr.value);
+                params.quantum.I_mag = val;
+                document.getElementById('qCurrVal').textContent = Math.round(val);
+                document.getElementById('qCurrMagDisplay').textContent = Math.round(val);
+                if (quantumCurrentLabel) {
+                    quantumCurrentLabel.element.textContent = `I = ${Math.round(val)} nA`;
+                }
+            });
+            qMag.addEventListener('input', () => {
+                const val = parseFloat(qMag.value);
+                params.quantum.B_mag = val;
+                document.getElementById('qMagVal').textContent = val.toFixed(1);
+                document.getElementById('qMagMagDisplay').textContent = val.toFixed(1);
+                if (quantumBLabel) {
+                    quantumBLabel.element.textContent = `B = ${val.toFixed(1)} T`;
+                }
+                if (currentMode === 'quantum') { rebuildScene(); }
+            });
+            qTemp.addEventListener('input', () => {
+                const val = parseFloat(qTemp.value);
+                params.quantum.temperature = val;
+                document.getElementById('qTempVal').textContent = val.toFixed(1);
+                document.getElementById('qTempDisplay').textContent = val.toFixed(1);
+            });
+
+            // 公共按钮
+            document.getElementById('resetViewBtn').addEventListener('click', () => {
+                camera.position.set(5.0, 4.0, 5.0);
+                orbitControls.target.set(0, 0, 0);
+                orbitControls.update();
+            });
+            document.getElementById('resetAccumulationBtn').addEventListener('click', resetAccumulation);
+            document.getElementById('resetAllBtn').addEventListener('click', resetAllParams);
+        }
+
+        // --- 更新箭头（正常/反常） ---
+        function updateArrowsAndParams() {
+            if (currentMode === 'quantum' || !currentArrowObj) return;
+            const p = getCurrentParams();
+            const { L, b, d } = p;
+            const iSign = getISign(), iMag = getIMag(), fieldSign = getFieldSign(), fieldMag = getFieldMag();
+            const isNormal = (currentMode === 'normal');
+
+            const currLen = Math.min(0.85, L/1.6) * (0.2 + iMag * 0.15);
+            currentArrowObj.setDirection(new THREE.Vector3(iSign,0,0));
+            currentArrowObj.setLength(currLen, 0.26, 0.15);
+            currentArrowObj.position.set(-L/2 - 0.35, 0, 0);
+            if (currentLabel) {
+                currentLabel.element.textContent = iSign === 1 ? "I_s →" : "I_s ←";
+                currentLabel.position.set(-L/2 - 0.55, 0.25, 0);
+            }
+            const magLen = Math.min(0.9, d + 0.7) * (0.2 + fieldMag * 0.06);
+            magneticArrowObj.setDirection(new THREE.Vector3(0,0,fieldSign));
+            magneticArrowObj.setLength(magLen, 0.28, 0.16);
+            magneticArrowObj.position.set(0, -b/2 - 0.35, -d/2 - 0.55);
+            if (magneticLabel) {
+                const labelText = isNormal ? (fieldSign === 1 ? "B →" : "B ←") : (fieldSign === 1 ? "M →" : "M ←");
+                magneticLabel.element.textContent = labelText;
+                magneticLabel.position.set(0.25, -b/2 - 0.55, -d/2 - 0.7);
+            }
+            if (vhLabel) {
+                vhLabel.element.textContent = isNormal ? 'U_H' : 'U_AHE';
+            }
+            resetCharge();
+            updateAccumulationUI(0);
+        }
+
+        // --- 初始化 ---
+        bindEvents();
+        // 默认正常模式
+        switchMode('normal');
+
+        // --- 动画循环 ---
+        function animate() {
+            if (currentMode === 'quantum') {
+                updateQuantumMotion();
+            } else {
+                updateChargeMotion();
+            }
+            orbitControls.update();
+            updateAxisIndicator();
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        function onResize() {
+            const w = container.clientWidth, h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+            labelRenderer.setSize(w, h);
+            axisRenderer.setSize(140, 140);
+        }
+        window.addEventListener('resize', onResize);
+        setTimeout(onResize, 100);
+    </script>
+</body>
+</html>
